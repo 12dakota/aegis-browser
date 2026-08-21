@@ -21,7 +21,7 @@ object CloudflareAuth {
     private const val TAG = "AegisCloudAuth"
 
     /** Production worker host — point this at your deployed Worker */
-    var workerBaseUrl: String = "https://firebase-oidc-token.dakdra03.workers.dev"
+    var workerBaseUrl: String = "https://aegis-auth.dakdra03.workers.dev"
 
     data class LoginResult(
         val success: Boolean,

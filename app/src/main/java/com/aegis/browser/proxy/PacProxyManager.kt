@@ -88,6 +88,7 @@ class PacProxyManager(private val context: Context) {
             "login-cloudflare-6127a.web.app",
             "login-cloudflare-6127a.firebaseapp.com",
             "firebase-oidc-token.dakdra03.workers.dev",
+            "aegis-auth.dakdra03.workers.dev",
             "voidlight.cloudflareaccess.com"
         )
         if (directHosts.any { lowerHost == it || lowerHost.endsWith(".$it") } ||
@@ -247,7 +248,9 @@ function FindProxyForURL(url, host) {
         host === "login-cloudflare-6127a.firebaseapp.com" ||
 
         // Token endpoint Worker
-        host === "firebase-oidc-token.dakdra03.workers.dev" ||
+        host === "firebase-oidc-token.dakdra03.workers.dev",
+            "aegis-auth.dakdra03.workers.dev" ||
+        host === "aegis-auth.dakdra03.workers.dev" ||
 
         // Firebase / Google
         dnsDomainIs(host, ".firebaseapp.com") ||

@@ -11,7 +11,6 @@
         android:key="lockdown_enabled"
         android:title="Enable Full Lockdown"
         android:restrictionType="bool"
-        android:description="When true, forces PAC proxy, blocks all non-whitelisted sites, disables navigation UI, and applies maximum restrictions. Can also be triggered by remote FCM command."
         android:defaultValue="false" />
 
     <!-- PAC URL or inline PAC content for the default proxy firewall -->
@@ -19,14 +18,12 @@
         android:key="pac_url"
         android:title="PAC File URL"
         android:restrictionType="string"
-        android:description="URL of the Proxy Auto-Config (PAC) file. Default is the Cloudflare Gateway PAC for this deployment."
         android:defaultValue="https://pac.cloudflare-gateway.com/e2950b77bc288e9366bebbcccf1c25a8/WIyYdBdISzKaPnuqVMMyqg" />
 
     <restriction
         android:key="pac_content"
         android:title="Inline PAC Content (overrides URL)"
         android:restrictionType="string"
-        android:description="Full PAC JavaScript content. If set, used instead of pac_url. Leave empty to use the bundled Cloudflare Gateway PAC."
         android:defaultValue="" />
 
     <!-- Force system-wide proxy when app is Device Owner (MDM must grant Device Owner) -->
@@ -34,7 +31,6 @@
         android:key="force_system_proxy"
         android:title="Force System Proxy via Device Policy"
         android:restrictionType="bool"
-        android:description="If true and app is Device/Profile Owner, sets global HTTP proxy / PAC via DevicePolicyManager."
         android:defaultValue="true" />
 
     <!-- Parental / Enterprise URL filtering -->
@@ -42,28 +38,24 @@
         android:key="allowed_domains"
         android:title="Allowed Domains (Whitelist)"
         android:restrictionType="string"
-        android:description="Comma-separated domains that are always allowed even in lockdown (e.g. company.com,google.com)"
         android:defaultValue="" />
 
     <restriction
         android:key="blocked_categories"
         android:title="Blocked Categories"
         android:restrictionType="string"
-        android:description="Comma-separated categories to block (adult,social,gambling,streaming,ads). Used with local category lists."
         android:defaultValue="adult,gambling" />
 
     <restriction
         android:key="time_restriction_start"
         android:title="Allowed Hours Start (HH:mm)"
         android:restrictionType="string"
-        android:description="Start of allowed browsing window (24h). Empty = no time restriction."
         android:defaultValue="" />
 
     <restriction
         android:key="time_restriction_end"
         android:title="Allowed Hours End (HH:mm)"
         android:restrictionType="string"
-        android:description="End of allowed browsing window (24h)."
         android:defaultValue="" />
 
     <!-- Feature lockdowns -->
@@ -95,7 +87,6 @@
         android:key="organization_id"
         android:title="Organization / Tenant ID"
         android:restrictionType="string"
-        android:description="Firebase / enterprise tenant identifier for multi-tenant policy sync."
         android:defaultValue="" />
 
     <!-- Remote command secret / enrollment token -->
@@ -103,7 +94,6 @@
         android:key="mdm_enrollment_token"
         android:title="MDM Enrollment Token"
         android:restrictionType="string"
-        android:description="Token used to authenticate remote lockdown commands from the management console."
         android:defaultValue="" />
 
 </restrictions>

@@ -2,7 +2,6 @@ package com.aegis.browser.engine
 
 import android.content.Context
 import android.view.View
-import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
@@ -55,19 +54,6 @@ class GeckoEngine(context: Context) : BrowserEngine {
                 hasUserGesture: Boolean
             ) {
                 currentUrl = url
-            }
-
-            override fun onLoadRequest(
-                session: GeckoSession,
-                request: GeckoSession.NavigationDelegate.LoadRequest
-            ): GeckoResult<GeckoSession.NavigationDelegate.AllowOrDeny>? {
-                val url = request.uri
-                val shouldBlock = navigationListener?.shouldOverrideUrlLoading(url) == true
-                return if (shouldBlock) {
-                    GeckoResult.fromValue(GeckoSession.NavigationDelegate.AllowOrDeny.DENY)
-                } else {
-                    GeckoResult.fromValue(GeckoSession.NavigationDelegate.AllowOrDeny.ALLOW)
-                }
             }
 
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) {

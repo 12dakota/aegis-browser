@@ -6,6 +6,10 @@ import android.content.RestrictionsManager
 import android.util.Log
 import com.aegis.browser.auth.SessionStore
 import java.time.LocalTime
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+import org.json.JSONArray
 import java.time.format.DateTimeFormatter
 
 /**
@@ -63,22 +67,23 @@ class PolicyManager(
 
     suspend fun refreshPolicies() {
         val mdmPolicy = readMdmRestrictions()
+        val cloudPolicy = readCloudPolicy()
         val localLockdown = prefs.getBoolean(KEY_REMOTE_LOCKDOWN, false)
         val orgId = SessionStore.getOrgId(context).orEmpty()
             .ifBlank { mdmPolicy.organizationId }
 
         currentPolicy = BrowserPolicy(
-            lockdownEnabled = localLockdown || mdmPolicy.lockdownEnabled,
-            pacUrl = mdmPolicy.pacUrl,
-            pacContent = mdmPolicy.pacContent,
+            lockdownEnabled = localLockdown || mdmPolicy.lockdownEnabled || cloudPolicy.lockdownEnabled,
+            pacUrl = mdmPolicy.pacUrl.ifBlank { cloudPolicy.pacUrl },
+            pacContent = mdmPolicy.pacContent.ifBlank { cloudPolicy.pacContent },
             forceSystemProxy = mdmPolicy.forceSystemProxy,
-            allowedDomains = mdmPolicy.allowedDomains,
-            blockedCategories = mdmPolicy.blockedCategories,
-            timeStart = mdmPolicy.timeStart,
-            timeEnd = mdmPolicy.timeEnd,
+            allowedDomains = mdmPolicy.allowedDomains.ifEmpty { cloudPolicy.allowedDomains },
+            blockedCategories = mdmPolicy.blockedCategories.ifEmpty { cloudPolicy.blockedCategories },
+            timeStart = mdmPolicy.timeStart ?: cloudPolicy.timeStart,
+            timeEnd = mdmPolicy.timeEnd ?: cloudPolicy.timeEnd,
             disableDownloads = mdmPolicy.disableDownloads,
             disableUploads = mdmPolicy.disableUploads,
-            forceSafeSearch = mdmPolicy.forceSafeSearch,
+            forceSafeSearch = mdmPolicy.forceSafeSearch || cloudPolicy.forceSafeSearch,
             disableIncognito = mdmPolicy.disableIncognito,
             organizationId = orgId,
             enrollmentToken = mdmPolicy.enrollmentToken
@@ -86,6 +91,48 @@ class PolicyManager(
 
         Log.i(TAG, "Policies refreshed. Lockdown=${currentPolicy.lockdownEnabled}")
         prefs.edit().putBoolean(KEY_LAST_LOCKDOWN, currentPolicy.lockdownEnabled).apply()
+    }
+
+
+    private fun readCloudPolicy(): BrowserPolicy {
+        return try {
+            val url = URL("https://aegis-auth.dakdra03.workers.dev/policy/get")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10000
+                readTimeout = 10000
+                requestMethod = "GET"
+            }
+            if (conn.responseCode !in 200..299) return BrowserPolicy()
+            val text = conn.inputStream.bufferedReader().readText()
+            val root = JSONObject(text)
+            val p = root.optJSONObject("policy") ?: return BrowserPolicy()
+            val allowed = mutableSetOf<String>()
+            val arr = p.optJSONArray("allowedDomains")
+            if (arr != null) for (i in 0 until arr.length()) allowed.add(arr.getString(i).lowercase())
+            val blockedCat = mutableSetOf<String>()
+            val bc = p.optJSONArray("blockedCategories")
+            if (bc != null) for (i in 0 until bc.length()) blockedCat.add(bc.getString(i).lowercase())
+            // Persist extension allowlist from cloud for ExtensionManager
+            val ext = root.optJSONObject("extensions")
+            if (ext != null) {
+                prefs.edit().putString("cloud_extensions_json", ext.toString()).apply()
+            }
+            BrowserPolicy(
+                lockdownEnabled = p.optBoolean("lockdownEnabled", false),
+                pacUrl = p.optString("pacUrl", ""),
+                forceSafeSearch = p.optBoolean("forceSafeSearch", true),
+                allowedDomains = allowed,
+                blockedCategories = if (blockedCat.isEmpty()) setOf("adult", "gambling") else blockedCat,
+                timeStart = p.optString("timeStart", null),
+                timeEnd = p.optString("timeEnd", null),
+                disableDownloads = p.optBoolean("disableDownloads", true),
+                disableUploads = p.optBoolean("disableUploads", true),
+                disableIncognito = p.optBoolean("disableIncognito", true)
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Cloud policy fetch failed", e)
+            BrowserPolicy()
+        }
     }
 
     private fun readMdmRestrictions(): BrowserPolicy {

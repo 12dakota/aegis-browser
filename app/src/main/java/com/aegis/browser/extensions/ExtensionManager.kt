@@ -25,7 +25,7 @@ object ExtensionManager {
         CatalogEntry(
             id = "ublock-origin",
             name = "uBlock Origin",
-            description = "Ecficient wide-spectrum content blocker",
+            description = "Efficient wide-spectrum content blocker",
             amoId = "uBlock0@raymondhill.net",
             amoXpiUrl = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
             chromeStoreId = "cjpalhdlnbpafilfilklakntgclifmdh",
@@ -41,7 +41,7 @@ object ExtensionManager {
         ALLOWLIST.any { it.id == id || it.amoId == id || it.chromeStoreId == id }
 
     fun isEnabled(ctx: Context, id: String): Boolean {
-        val entry = ALLOWLIST.find { it.id == id } :? return false
+        val entry = ALLOWLIST.find { it.id == id } ?: return false
         return prefs(ctx).getBoolean("enabled_" + id, entry.defaultEnabled)
     }
 
@@ -60,7 +60,7 @@ object ExtensionManager {
                 Log.i(TAG, "Installing: " + entry.name)
                 controller.install(entry.amoXpiUrl).accept(
                     { ext -> Log.i(TAG, "Installed " + (ext?.id ?: "?")) },
-                    { e -> Log.w(TAG, "Install failed " + entry.id + ": " + (e?.message :? "?")) }
+                    { e -> Log.w(TAG, "Install failed " + entry.id + ": " + (e?.message ?: "?")) }
                 )
             }
         } catch (e: Exception) {

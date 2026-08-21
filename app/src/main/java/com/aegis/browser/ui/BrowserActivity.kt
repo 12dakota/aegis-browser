@@ -30,6 +30,7 @@ import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore
+import com.aegis.browser.extensions.ExtensionManager
 
 /**
  * Chrome-like browser shell — entirely our UI and control code.
@@ -77,6 +78,12 @@ class BrowserActivity : AppCompatActivity() {
         tabManager.onTabsChanged = {
             refreshTabStrip()
             showActiveTab()
+        }
+
+        // Allowlisted extensions (uBlock Origin on by default) on Gecko runtime
+        try {
+            ExtensionManager.ensureGeckoExtensions(this)
+        } catch (_: Exception) {
         }
 
         buildChromeLikeUi()
@@ -256,37 +263,56 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun refreshTabStrip() {
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
         while (tabStrip.childCount > 1) {
             tabStrip.removeViewAt(0)
         }
         tabManager.allTabs.forEach { tab ->
-            val chip = TextView(this).apply {
-                text = tab.title.take(18).ifBlank { "New Tab" }
-                setTextColor(
-                    if (tab.id == tabManager.activeTab?.id) Color.WHITE
-                    else Color.parseColor("#9AA0A6")
-                )
-                textSize = 12f
-                setPadding(28, 16, 28, 16)
+            val active = tab.id == tabManager.activeTab?.id
+            val chip = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(6), dp(4), dp(6))
                 setBackgroundColor(
-                    if (tab.id == tabManager.activeTab?.id) Color.parseColor("#202124")
-                    else Color.parseColor("#3C4043")
+                    if (active) Color.parseColor("#202124") else Color.parseColor("#3C4043")
                 )
+            }
+            val title = TextView(this).apply {
+                text = tab.title.take(16).ifBlank { "New Tab" }
+                setTextColor(if (active) Color.WHITE else Color.parseColor("#9AA0A6"))
+                textSize = 12f
+                setPadding(0, 0, dp(6), 0)
                 setOnClickListener {
                     tabManager.switchTo(tab.id)
                     showActiveTab()
                 }
-                setOnLongClickListener {
+            }
+            val close = TextView(this).apply {
+                text = "×"
+                setTextColor(Color.parseColor("#E8EAED"))
+                textSize = 16f
+                setPadding(dp(8), dp(2), dp(8), dp(2))
+                setOnClickListener {
                     if (!policyManager.currentPolicy.lockdownEnabled) {
                         tabManager.closeTab(tab.id)
                         showActiveTab()
                     }
-                    true
                 }
             }
+            chip.addView(title)
+            chip.addView(close)
+            // Margin between chips
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.marginEnd = dp(4)
+            chip.layoutParams = lp
             tabStrip.addView(chip, tabStrip.childCount - 1)
         }
         tabCountBtn.text = tabManager.count.toString()
+        updateStatusBar()
     }
 
     private fun showActiveTab() {
@@ -420,6 +446,10 @@ class BrowserActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.time_restricted, Toast.LENGTH_LONG).show()
             return false
         }
+        // Extension store browse is allowed when not in full lockdown
+        if (ExtensionManager.isStoreBrowseUrl(url) && !policyManager.currentPolicy.lockdownEnabled) {
+            return true
+        }
         if (!policyManager.isUrlAllowed(url)) {
             Toast.makeText(this, R.string.url_blocked, Toast.LENGTH_LONG).show()
             return false
@@ -431,13 +461,23 @@ class BrowserActivity : AppCompatActivity() {
         val lockdown = policyManager.currentPolicy.lockdownEnabled
         toolbar.visibility = if (lockdown) View.GONE else View.VISIBLE
         tabScroll.visibility = if (lockdown) View.GONE else View.VISIBLE
+        updateStatusBar()
+    }
+
+    private fun updateStatusBar() {
+        val lockdown = policyManager.currentPolicy.lockdownEnabled
         val owner = DeviceOwnerHelper.getStatusSummary(this)
+        val extCount = ExtensionManager.enabledEntries(this).size
         statusBar.text = buildString {
             append(if (lockdown) "LOCKDOWN • " else "Aegis • ")
             append(pacManager.getActiveProxyDescription())
+            append(" • Ext:$extCount")
+            append(" • Tabs:${tabManager.count}")
             append(" • ")
-            append(owner.take(28))
+            append(owner.take(20))
         }
+        // Tap status bar → extensions menu
+        statusBar.setOnClickListener { showExtensionsMenu() }
     }
 
     private fun showLockdownOverlay() {
@@ -468,6 +508,7 @@ class BrowserActivity : AppCompatActivity() {
     private fun showChromeMenu() {
         val items = arrayOf(
             "New tab",
+            "Extensions…",
             "Switch engine (C ↔ G)",
             "Close other tabs",
             "Engine preference: Auto",
@@ -483,22 +524,81 @@ class BrowserActivity : AppCompatActivity() {
                         tabManager.createTab("https://www.google.com")
                         loadInActiveTab("https://www.google.com")
                     }
-                    1 -> switchEngineOnActiveTab()
-                    2 -> tabManager.closeAllExceptActive()
-                    3 -> {
+                    1 -> showExtensionsMenu()
+                    2 -> switchEngineOnActiveTab()
+                    3 -> tabManager.closeAllExceptActive()
+                    4 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.AUTO)
                         Toast.makeText(this, "Engine: Auto", Toast.LENGTH_SHORT).show()
                     }
-                    4 -> {
+                    5 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM)
                         Toast.makeText(this, "Engine: Chromium only", Toast.LENGTH_SHORT).show()
                     }
-                    5 -> {
+                    6 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
                         Toast.makeText(this, "Engine: Gecko only", Toast.LENGTH_SHORT).show()
                     }
-                    6 -> showAbout()
+                    7 -> showAbout()
                 }
+            }
+            .show()
+    }
+
+    private fun showExtensionsMenu() {
+        val entries = ExtensionManager.ALLOWLIST
+        val labels = entries.map { e ->
+            val on = ExtensionManager.isEnabled(this, e.id)
+            "${if (on) "✓" else "○"} ${e.name}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Extensions (allowlist only)")
+            .setItems(labels) { _, which ->
+                val entry = entries[which]
+                showExtensionDetail(entry)
+            }
+            .setNeutralButton("AMO store") { _, _ ->
+                loadInActiveTab("https://addons.mozilla.org/firefox/")
+            }
+            .setNegativeButton("Chrome store") { _, _ ->
+                loadInActiveTab("https://chromewebstore.google.com/")
+            }
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
+    private fun showExtensionDetail(entry: ExtensionManager.CatalogEntry) {
+        val enabled = ExtensionManager.isEnabled(this, entry.id)
+        val msg = """
+            ${entry.name}
+            ${entry.description}
+
+            Stores: Mozilla AMO + Chrome Web Store
+            Status: ${if (enabled) "ENABLED" else "disabled"}
+
+            Installs only work for allowlisted add-ons.
+            Full WebExtensions run on the Gecko engine.
+        """.trimIndent()
+        AlertDialog.Builder(this)
+            .setTitle(entry.name)
+            .setMessage(msg)
+            .setPositiveButton(if (enabled) "Disable" else "Enable") { _, _ ->
+                ExtensionManager.setEnabled(this, entry.id, !enabled)
+                if (!enabled) {
+                    ExtensionManager.ensureGeckoExtensions(this)
+                    // Prefer Gecko so extension can run
+                    EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+                    Toast.makeText(this, "${entry.name} enabled — use Gecko engine", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "${entry.name} disabled", Toast.LENGTH_SHORT).show()
+                }
+                updateStatusBar()
+            }
+            .setNeutralButton("Open AMO") { _, _ ->
+                loadInActiveTab(entry.amoXpiUrl.replace("/downloads/latest/ublock-origin/latest.xpi", "/firefox/addon/ublock-origin/"))
+            }
+            .setNegativeButton("Open Chrome store") { _, _ ->
+                loadInActiveTab(entry.chromeStoreUrl)
             }
             .show()
     }
@@ -511,6 +611,7 @@ class BrowserActivity : AppCompatActivity() {
             Engines: Chromium (WebView) + Gecko (GeckoView)
             Auth: Cloudflare Worker (required)
             Proxy: Cloudflare Gateway PAC
+            Extensions: allowlist only (uBlock Origin default)
             Controls: MDM + parental policy + remote lockdown
 
             ${DeviceOwnerHelper.getStatusSummary(this)}

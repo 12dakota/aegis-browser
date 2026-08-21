@@ -2,19 +2,14 @@ package com.aegis.browser.engine
 
 import android.content.Context
 import android.view.View
-import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 
-/**
- * Firefox / Gecko engine via Mozilla GeckoView.
- * Both engines live in the same APK; only one is active per page load.
- */
 class GeckoEngine(context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.GECKO
 
-    private val runtime: GeckoRuntime = GeckoRuntime.create(context)
+    private val runtime = GeckoRuntimeHolder.get(context)
     private val session = GeckoSession()
     private val geckoView = GeckoView(context)
 
@@ -91,7 +86,6 @@ class GeckoEngine(context: Context) : BrowserEngine {
     }
     override fun destroy() {
         session.close()
-        runtime.shutdown()
     }
     override fun onResume() {}
     override fun onPause() {}

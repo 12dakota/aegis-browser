@@ -23,6 +23,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.aegis.browser.AegisApplication
 import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
@@ -248,7 +251,19 @@ class BrowserActivity : AppCompatActivity() {
         root.addView(progressBar)
         root.addView(statusBar)
         root.addView(engineContainer)
+        root.fitsSystemWindows = true
         setContentView(root)
+
+        // Keep chrome below status bar and above nav bar
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = Color.parseColor("#202124")
+        window.navigationBarColor = Color.parseColor("#202124")
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        root.requestApplyInsets()
     }
 
     private fun chromeIconButton(label: String, onClick: () -> Unit): TextView {
@@ -381,6 +396,7 @@ class BrowserActivity : AppCompatActivity() {
             }
 
             override fun shouldOverrideUrlLoading(url: String): Boolean {
+                if (handlePossibleExtensionInstall(url)) return true
                 return !isNavigationAllowed(url)
             }
         })
@@ -405,6 +421,7 @@ class BrowserActivity : AppCompatActivity() {
             }
         }
 
+        if (handlePossibleExtensionInstall(url)) return
         if (!isNavigationAllowed(url)) return
 
         var tab = tabManager.activeTab
@@ -439,6 +456,57 @@ class BrowserActivity : AppCompatActivity() {
             tab.engine?.loadUrl(url)
         }
         Toast.makeText(this, "Engine: ${opposite.name}", Toast.LENGTH_SHORT).show()
+    }
+
+
+    private fun handlePossibleExtensionInstall(url: String): Boolean {
+        val lower = url.lowercase()
+        val isXpi = lower.contains(".xpi")
+        val isAddonPage = lower.contains("addons.mozilla.org") && lower.contains("/addon/")
+        if (!isXpi && !isAddonPage) return false
+
+        val entry = ExtensionManager.ALLOWLIST.find { e ->
+            lower.contains(e.id) ||
+                (lower.contains("ublock") && e.id == "ublock-origin") ||
+                lower.contains(e.chromeStoreId.lowercase())
+        }
+        // Addon page for non-allowlisted: let page load; only block xpi installs
+        if (entry == null) {
+            if (isXpi) {
+                Toast.makeText(
+                    this,
+                    "This extension is not on the parental allowlist",
+                    Toast.LENGTH_LONG
+                ).show()
+                return true
+            }
+            return false
+        }
+        // For allowlisted addon *page*, still show install prompt when user hits xpi
+        // or when path clearly is the install package
+        if (!isXpi) return false
+
+        AlertDialog.Builder(this)
+            .setTitle("Add to Aegis?")
+            .setMessage(
+                "Install " + entry.name + "?\n\n" + entry.description +
+                    "\n\nExtensions run on the Gecko engine (like Firefox)."
+            )
+            .setPositiveButton("Add") { _, _ ->
+                ExtensionManager.setEnabled(this, entry.id, true)
+                EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+                Toast.makeText(this, "Installing " + entry.name + "…", Toast.LENGTH_SHORT).show()
+                ExtensionManager.ensureGeckoExtensions(this)
+                updateStatusBar()
+                Toast.makeText(
+                    this,
+                    entry.name + " enabled — open a Gecko tab (tap engine badge to G)",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+        return true
     }
 
     private fun isNavigationAllowed(url: String): Boolean {

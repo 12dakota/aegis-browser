@@ -4,8 +4,11 @@
         <item name="colorPrimary">#0D47A1</item>
         <item name="colorPrimaryContainer">#1565C0</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="android:statusBarColor">#0D47A1</item>
-        <item name="android:navigationBarColor">#0D47A1</item>
+        <item name="android:statusBarColor">#202124</item>
+        <item name="android:navigationBarColor">#202124</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:fitsSystemWindows">true</item>
     </style>
     <style name="Theme.AegisBrowser.NoActionBar" parent="Theme.AegisBrowser">
         <item name="windowActionBar">false</item>

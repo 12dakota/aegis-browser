@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Aegis Parent Console</title>
+<style>
+  :root {
+    --bg:#0b1220; --panel:#121a2b; --card:#1a2438; --border:#2a3650;
+    --text:#e8eef9; --muted:#8b9bb8; --accent:#3b82f6; --ok:#22c55e; --danger:#ef4444; --warn:#f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:#0a101c; }
+  header h1 { margin:0; font-size:1.15rem; letter-spacing:.02em; }
+  header h1 span { color:var(--accent); }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 48px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
+  h2 { margin:0 0 12px; font-size:1.05rem; }
+  label { display:block; font-size:.8rem; color:var(--muted); margin:10px 0 4px; }
+  input, select, textarea {
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text); font-size:0.95rem;
+  }
+  textarea { min-height:72px; font-family: ui-monospace, monospace; }
+  button {
+    margin-top:10px; margin-right:8px; padding:10px 14px; border:0; border-radius:10px;
+    background:var(--accent); color:#fff; font-weight:600; cursor:pointer; font-size:.9rem;
+  }
+  button.secondary { background:#334155; }
+  button.ok { background:var(--ok); color:#052e16; }
+  button.danger { background:var(--danger); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:160px; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  .tag {
+    display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+    background:#243047; border:1px solid var(--border); font-size:.8rem; margin:3px;
+  }
+  .tag button { margin:0; padding:0 4px; background:transparent; color:#fca5a5; font-size:1rem; }
+  .child-chip {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--panel);
+    margin-bottom:8px; cursor:pointer;
+  }
+  .child-chip.active { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .child-chip strong { display:block; }
+  #toast {
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    padding:12px 18px; border-radius:10px; background:#1e293b; border:1px solid var(--border);
+    display:none; z-index:50; max-width:90vw;
+  }
+  #toast.show { display:block; }
+  #toast.err { border-color:var(--danger); }
+  #toast.ok { border-color:var(--ok); }
+  #loginView, #appView { display:none; }
+  #loginView.show, #appView.show { display:block; }
+  .split { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
+  @media (max-width:800px) { .split { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Aegis</span> Parent Console</h1>
+  <div class="muted" id="whoami"></div>
+</header>
+<main>
+  <div id="loginView">
+    <div class="card" style="max-width:420px;margin:40px auto;">
+      <h2>Parent sign in</h2>
+      <p class="muted">Use your parent Firebase account. Then create child logins and set their rules.</p>
+      <label>Email</label>
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="parent@example.com"/>
+      <label>Password</label>
+      <input id="loginPass" type="password" autocomplete="current-password"/>
+      <div class="row">
+        <button class="ok" onclick="doLogin()">Sign in</button>
+        <button class="secondary" onclick="doRegister()">Create parent account</button>
+      </div>
+      <p class="muted" style="margin-top:12px">API: <span id="apiLabel"></span></p>
+    </div>
+  </div>
+
+  <div id="appView">
+    <div class="split">
+      <div>
+        <div class="card">
+          <h2>Children</h2>
+          <div id="childList" class="muted">Loading…</div>
+          <hr style="border-color:var(--border);margin:14px 0"/>
+          <h2>Add child login</h2>
+          <label>Child email</label>
+          <input id="childEmail" type="email" placeholder="child@family.com"/>
+          <label>Password (min 6)</label>
+          <input id="childPass" type="password"/>
+          <label>Display name</label>
+          <input id="childName" placeholder="Alex"/>
+          <button onclick="createChild()">Create child account</button>
+          <button class="secondary" onclick="logout()">Sign out</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="policyCard" style="opacity:.5;pointer-events:none">
+          <h2>Controls for <span id="selName">—</span></h2>
+          <p class="muted" id="selMeta"></p>
+          <div class="row">
+            <div>
+              <label>Lockdown</label>
+              <select id="lockdown"><option value="false">Off</option><option value="true">On</option></select>
+            </div>
+            <div>
+              <label>Force SafeSearch</label>
+              <select id="safe"><option value="true">Yes</option><option value="false">No</option></select>
+            </div>
+          </div>
+          <label>Allowed domains (comma-separated; empty = allow all except blocks)</label>
+          <textarea id="allowed" placeholder="google.com, wikipedia.org, khanacademy.org"></textarea>
+          <label>Blocked domains</label>
+          <textarea id="blocked" placeholder="example-bad.com"></textarea>
+          <div class="row">
+            <div>
+              <label>Browse from (HH:mm)</label>
+              <input id="tStart" placeholder="08:00"/>
+            </div>
+            <div>
+              <label>Browse until (HH:mm)</label>
+              <input id="tEnd" placeholder="21:00"/>
+            </div>
+          </div>
+          <label>PAC / Gateway URL</label>
+          <input id="pacUrl"/>
+          <button onclick="savePolicy()">Save policy</button>
+          <button class="danger" onclick="setLockdown(true)">Lock down now</button>
+          <button class="secondary" onclick="setLockdown(false)">Release lockdown</button>
+        </div>
+
+        <div class="card" id="extCard" style="opacity:.5;pointer-events:none">
+          <h2>Extension allowlist</h2>
+          <p class="muted">Add by <strong>name</strong> or <strong>id</strong> only (e.g. <code>uBlock Origin</code> or <code>ublock-origin</code>). No JSON required.</p>
+          <div id="extList"></div>
+          <label>Name or ID</label>
+          <input id="extQuery" placeholder="ublock-origin or Privacy Badger"/>
+          <button class="ok" onclick="addExt()">Add extension</button>
+          <button class="secondary" onclick="loadCatalog()">Show catalog tips</button>
+          <pre id="catalog" class="muted" style="white-space:pre-wrap;font-size:.75rem"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const API = (localStorage.getItem('aegis_api') || 'https://aegis-auth.dakdra03.workers.dev').replace(/\/$/, '');
+document.getElementById('apiLabel').textContent = API;
+
+let sessionToken = localStorage.getItem('aegis_parent_session') || '';
+let parentUser = null;
+let children = [];
+let selectedChildId = localStorage.getItem('aegis_selected_child') || '';
+let policy = {};
+let allowlist = [];
+
+function toast(msg, ok=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => el.className = '', 3500);
+}
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + sessionToken,
+  };
+}
+
+async function api(path, opts={}) {
+  const r = await fetch(API + path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+async function doLogin() {
+  try {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const j = await api('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    sessionToken = j.sessionToken;
+    localStorage.setItem('aegis_parent_session', sessionToken);
+    parentUser = j;
+    toast('Signed in', true);
+    await enterApp();
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+async function doRegister() {
+  try {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const j = await api('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    sessionToken = j.sessionToken;
+    localStorage.setItem('aegis_parent_session', sessionToken);
+    parentUser = j;
+    toast('Parent account created', true);
+    await enterApp();
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+function logout() {
+  sessionToken = '';
+  localStorage.removeItem('aegis_parent_session');
+  location.reload();
+}
+
+async function enterApp() {
+  document.getElementById('loginView').classList.remove('show');
+  document.getElementById('appView').classList.add('show');
+  document.getElementById('whoami').textContent = (parentUser && parentUser.email) || 'Parent';
+  await refreshChildren();
+}
+
+async function refreshChildren() {
+  const j = await api('/parent/children', { headers: authHeaders() });
+  children = j.children || [];
+  const el = document.getElementById('childList');
+  if (!children.length) {
+    el.innerHTML = '<p class="muted">No children yet. Create a child login on the left.</p>';
+    disableControls(true);
+    return;
+  }
+  el.innerHTML = children.map(c => `
+    <div class="child-chip ${c.userId===selectedChildId?'active':''}" onclick="selectChild('${c.userId}')">
+      <div>
+        <strong>${escapeHtml(c.displayName || c.email)}</strong>
+        <span class="muted">${escapeHtml(c.email)}</span>
+      </div>
+    </div>
+  `).join('');
+  if (selectedChildId && children.some(c => c.userId === selectedChildId)) {
+    await selectChild(selectedChildId);
+  } else {
+    await selectChild(children[0].userId);
+  }
+}
+
+async function createChild() {
+  try {
+    const email = document.getElementById('childEmail').value.trim();
+    const password = document.getElementById('childPass').value;
+    const displayName = document.getElementById('childName').value.trim();
+    const j = await api('/parent/children', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ email, password, displayName }),
+    });
+    toast('Child created: ' + j.child.email, true);
+    document.getElementById('childPass').value = '';
+    selectedChildId = j.child.userId;
+    localStorage.setItem('aegis_selected_child', selectedChildId);
+    await refreshChildren();
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+function disableControls(off) {
+  ['policyCard','extCard'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.opacity = off ? '.5' : '1';
+    el.style.pointerEvents = off ? 'none' : 'auto';
+  });
+}
+
+async function selectChild(id) {
+  selectedChildId = id;
+  localStorage.setItem('aegis_selected_child', id);
+  const c = children.find(x => x.userId === id);
+  document.getElementById('selName').textContent = (c && (c.displayName || c.email)) || id;
+  document.getElementById('selMeta').textContent = c ? ('userId: ' + c.userId + ' · ' + c.email) : '';
+  disableControls(false);
+  // re-render chips active state
+  document.querySelectorAll('.child-chip').forEach(n => {
+    n.classList.toggle('active', n.getAttribute('onclick')?.includes(id));
+  });
+  await loadChildPolicy();
+  await loadChildExt();
+}
+
+async function loadChildPolicy() {
+  const j = await api('/child/policy?childId=' + encodeURIComponent(selectedChildId), { headers: authHeaders() });
+  policy = j.policy || {};
+  document.getElementById('lockdown').value = String(!!policy.lockdownEnabled);
+  document.getElementById('safe').value = String(policy.forceSafeSearch !== false);
+  document.getElementById('allowed').value = (policy.allowedDomains || []).join(', ');
+  document.getElementById('blocked').value = (policy.blockedDomains || []).join(', ');
+  document.getElementById('tStart').value = policy.timeStart || '';
+  document.getElementById('tEnd').value = policy.timeEnd || '';
+  document.getElementById('pacUrl').value = policy.pacUrl || '';
+}
+
+async function loadChildExt() {
+  const j = await api('/child/extensions?childId=' + encodeURIComponent(selectedChildId), { headers: authHeaders() });
+  allowlist = j.allowlist || [];
+  renderExt();
+}
+
+function renderExt() {
+  const el = document.getElementById('extList');
+  if (!allowlist.length) {
+    el.innerHTML = '<p class="muted">No extensions allowlisted.</p>';
+    return;
+  }
+  el.innerHTML = allowlist.map(e => `
+    <span class="tag">${escapeHtml(e.name || e.id)}
+      <button title="Remove" onclick="removeExt('${escapeHtml(e.id)}')">×</button>
+    </span>
+  `).join('');
+}
+
+async function savePolicy() {
+  try {
+    const next = {
+      ...policy,
+      lockdownEnabled: document.getElementById('lockdown').value === 'true',
+      forceSafeSearch: document.getElementById('safe').value === 'true',
+      allowedDomains: splitCsv(document.getElementById('allowed').value),
+      blockedDomains: splitCsv(document.getElementById('blocked').value),
+      timeStart: document.getElementById('tStart').value || null,
+      timeEnd: document.getElementById('tEnd').value || null,
+      pacUrl: document.getElementById('pacUrl').value,
+    };
+    const j = await api('/child/policy', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ childId: selectedChildId, policy: next }),
+    });
+    policy = j.policy;
+    toast('Policy saved for this child', true);
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+async function setLockdown(on) {
+  try {
+    await api('/child/lockdown', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ childId: selectedChildId, enable: on }),
+    });
+    document.getElementById('lockdown').value = String(on);
+    toast(on ? 'Lockdown ON' : 'Lockdown OFF', true);
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+async function addExt() {
+  try {
+    const query = document.getElementById('extQuery').value.trim();
+    if (!query) return toast('Enter a name or id', false);
+    const j = await api('/child/extensions/add', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ childId: selectedChildId, query }),
+    });
+    allowlist = j.allowlist || [];
+    renderExt();
+    document.getElementById('extQuery').value = '';
+    toast(j.added ? ('Added ' + (j.added.name || j.added.id)) : (j.message || 'Updated'), true);
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+async function removeExt(id) {
+  try {
+    const j = await api('/child/extensions/remove', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ childId: selectedChildId, id }),
+    });
+    allowlist = j.allowlist || [];
+    renderExt();
+    toast('Removed', true);
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+async function loadCatalog() {
+  try {
+    const j = await api('/extensions/catalog');
+    document.getElementById('catalog').textContent =
+      (j.catalog || []).map(e => e.id + ' — ' + e.name).join('\n') || 'Empty';
+  } catch (e) {
+    toast(e.message, false);
+  }
+}
+
+function splitCsv(s) {
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+(async function boot() {
+  if (!sessionToken) {
+    document.getElementById('loginView').classList.add('show');
+    return;
+  }
+  try {
+    const v = await api('/auth/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionToken }),
+    });
+    if (!v.valid) throw new Error('Session expired');
+    parentUser = { email: v.email, userId: v.userId };
+    await enterApp();
+  } catch {
+    localStorage.removeItem('aegis_parent_session');
+    document.getElementById('loginView').classList.add('show');
+  }
+})();
+</script>
+</body>
+</html>

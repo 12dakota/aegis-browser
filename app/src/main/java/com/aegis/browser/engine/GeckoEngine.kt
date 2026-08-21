@@ -1,38 +1,112 @@
 package com.aegis.browser.engine
 
 import android.content.Context
-import android.util.Log
 import android.view.View
+import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoView
 
 /**
- * Gecko engine wrapper.
- * GeckoView dependency is disabled in low-RAM sandbox builds; falls back to Chromium.
- * Re-enable org.mozilla.geckoview in app/build.gradle.kts on a full machine.
+ * Firefox / Gecko engine via Mozilla GeckoView.
+ * Both engines live in the same APK; only one is active per page load.
  */
 class GeckoEngine(context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.GECKO
 
-    private val fallback = ChromiumEngine(context)
+    private val runtime: GeckoRuntime = GeckoRuntime.create(context)
+    private val session = GeckoSession()
+    private val geckoView = GeckoView(context)
+
+    private var progressListener: ((Int) -> Unit)? = null
+    private var navigationListener: BrowserEngine.NavigationListener? = null
+    private var currentUrl: String? = null
+    private var currentTitle: String? = null
+    private var canGoBackFlag = false
+    private var canGoForwardFlag = false
 
     init {
-        Log.w("GeckoEngine", "GeckoView not linked in this build — using Chromium fallback")
+        session.open(runtime)
+        geckoView.setSession(session)
+
+        session.progressDelegate = object : GeckoSession.ProgressDelegate {
+            override fun onPageStart(session: GeckoSession, url: String) {
+                currentUrl = url
+                navigationListener?.onPageStarted(url)
+                progressListener?.invoke(10)
+            }
+
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+                navigationListener?.onPageFinished(currentUrl)
+                progressListener?.invoke(100)
+            }
+
+            override fun onProgressChange(session: GeckoSession, progress: Int) {
+                progressListener?.invoke(progress)
+            }
+        }
+
+        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
+            override fun onLocationChange(
+                session: GeckoSession,
+                url: String?,
+                perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>,
+                hasUserGesture: Boolean
+            ) {
+                currentUrl = url
+            }
+
+            override fun onLoadRequest(
+                session: GeckoSession,
+                request: GeckoSession.NavigationDelegate.LoadRequest
+            ): GeckoResult<AllowOrDeny>? {
+                val url = request.uri
+                val shouldBlock = navigationListener?.shouldOverrideUrlLoading(url) == true
+                return if (shouldBlock) {
+                    GeckoResult.fromValue(GeckoSession.NavigationDelegate.AllowOrDeny.DENY)
+                } else {
+                    GeckoResult.fromValue(GeckoSession.NavigationDelegate.AllowOrDeny.ALLOW)
+                }
+            }
+
+            override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) {
+                canGoBackFlag = canGoBack
+            }
+
+            override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) {
+                canGoForwardFlag = canGoForward
+            }
+        }
+
+        session.contentDelegate = object : GeckoSession.ContentDelegate {
+            override fun onTitleChange(session: GeckoSession, title: String?) {
+                currentTitle = title
+            }
+        }
     }
 
-    override fun getView(): View = fallback.getView()
-    override fun loadUrl(url: String) = fallback.loadUrl(url)
-    override fun canGoBack(): Boolean = fallback.canGoBack()
-    override fun goBack() = fallback.goBack()
-    override fun canGoForward(): Boolean = fallback.canGoForward()
-    override fun goForward() = fallback.goForward()
-    override fun reload() = fallback.reload()
-    override fun stopLoading() = fallback.stopLoading()
-    override fun getCurrentUrl(): String? = fallback.getCurrentUrl()
-    override fun getTitle(): String? = fallback.getTitle()
-    override fun setProgressListener(listener: ((Int) -> Unit)?) = fallback.setProgressListener(listener)
-    override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) =
-        fallback.setNavigationListener(listener)
-    override fun destroy() = fallback.destroy()
-    override fun onResume() = fallback.onResume()
-    override fun onPause() = fallback.onPause()
+    override fun getView(): View = geckoView
+    override fun loadUrl(url: String) {
+        currentUrl = url
+        session.loadUri(url)
+    }
+    override fun canGoBack(): Boolean = canGoBackFlag
+    override fun goBack() { if (canGoBackFlag) session.goBack() }
+    override fun canGoForward(): Boolean = canGoForwardFlag
+    override fun goForward() { if (canGoForwardFlag) session.goForward() }
+    override fun reload() = session.reload()
+    override fun stopLoading() = session.stop()
+    override fun getCurrentUrl(): String? = currentUrl
+    override fun getTitle(): String? = currentTitle
+    override fun setProgressListener(listener: ((Int) -> Unit)?) { progressListener = listener }
+    override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) {
+        navigationListener = listener
+    }
+    override fun destroy() {
+        session.close()
+        runtime.shutdown()
+    }
+    override fun onResume() {}
+    override fun onPause() {}
 }

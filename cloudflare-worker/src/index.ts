@@ -1,12 +1,14 @@
 /**
- * Aegis Auth & Policy Cloudflare Worker
- * All secrets stay here. APK only receives short-lived session tokens.
+ * Aegis Auth Worker — Firebase email/password via Identity Toolkit (server-side only).
+ * APK never sees FIREBASE_API_KEY or service account material.
  */
 
 export interface Env {
   FIREBASE_API_KEY?: string;
+  FIREBASE_PROJECT_ID?: string;
+  FIREBASE_CLIENT_EMAIL?: string;
+  FIREBASE_PRIVATE_KEY?: string;
   AEGIS_SIGNING_SECRET: string;
-  /** Optional: allow demo login when Firebase is not configured */
   DEMO_EMAIL?: string;
   DEMO_PASSWORD?: string;
 }
@@ -27,11 +29,20 @@ export default {
       if (path === "/auth/validate" && request.method === "POST") {
         return await handleValidate(request, env);
       }
+      if (path === "/auth/register" && request.method === "POST") {
+        return await handleRegister(request, env);
+      }
       if (path === "/policy/lockdown" && request.method === "POST") {
         return await handleLockdownCommand(request, env);
       }
       if (path === "/health") {
-        return json({ status: "ok", service: "aegis-worker", auth: "cloudflare" });
+        return json({
+          status: "ok",
+          service: "aegis-worker",
+          auth: "cloudflare",
+          firebaseConfigured: Boolean(env.FIREBASE_API_KEY),
+          project: env.FIREBASE_PROJECT_ID || null,
+        });
       }
       return json({ error: "Not found" }, 404);
     } catch (e: any) {
@@ -46,7 +57,6 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return json({ error: "email and password required" }, 400);
   }
 
-  // Path A: Firebase Identity Toolkit (secrets only on Worker)
   if (env.FIREBASE_API_KEY) {
     const resp = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${env.FIREBASE_API_KEY}`,
@@ -62,26 +72,37 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     );
     const data = (await resp.json()) as any;
     if (!resp.ok) {
-      return json({ error: data.error?.message || "Login failed" }, 401);
+      const msg = data.error?.message || "Login failed";
+      const friendly =
+        msg === "EMAIL_NOT_FOUND" || msg === "INVALID_EMAIL"
+          ? "No account found for that email"
+          : msg === "INVALID_PASSWORD" || msg === "INVALID_LOGIN_CREDENTIALS"
+            ? "Incorrect email or password"
+            : msg === "USER_DISABLED"
+              ? "This account has been disabled"
+              : msg === "TOO_MANY_ATTEMPTS_TRY_LATER"
+                ? "Too many attempts — try again later"
+                : msg;
+      return json({ error: friendly, code: msg }, 401);
     }
+
     const sessionToken = await mintSessionToken(
       env,
       data.localId || body.email,
       body.email,
-      3600
+      Number(data.expiresIn) || 3600
     );
+
     return json({
       sessionToken,
       userId: data.localId,
-      email: body.email,
-      expiresIn: "3600",
-      // legacy fields for older clients
-      idToken: data.idToken,
-      localId: data.localId,
+      email: data.email || body.email,
+      expiresIn: String(data.expiresIn || 3600),
+      firebaseIdToken: data.idToken,
+      refreshToken: data.refreshToken,
     });
   }
 
-  // Path B: Demo credentials (dev only)
   if (
     env.DEMO_EMAIL &&
     env.DEMO_PASSWORD &&
@@ -97,25 +118,65 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     });
   }
 
-  // Path C: Accept any non-empty credentials in development if no secrets configured
-  // REMOVE this path for production — set FIREBASE_API_KEY or DEMO_* secrets.
-  if (!env.FIREBASE_API_KEY && !env.DEMO_EMAIL) {
-    const sessionToken = await mintSessionToken(
-      env,
-      body.email,
-      body.email,
-      3600
-    );
-    return json({
-      sessionToken,
-      userId: body.email,
-      email: body.email,
-      expiresIn: "3600",
-      warning: "dev-mode-open-login",
-    });
+  return json(
+    { error: "Firebase is not configured on the Worker. Set FIREBASE_API_KEY secret." },
+    503
+  );
+}
+
+async function handleRegister(request: Request, env: Env): Promise<Response> {
+  if (!env.FIREBASE_API_KEY) {
+    return json({ error: "Firebase not configured" }, 503);
+  }
+  const body = (await request.json()) as {
+    email?: string;
+    password?: string;
+    displayName?: string;
+  };
+  if (!body.email || !body.password) {
+    return json({ error: "email and password required" }, 400);
+  }
+  if (body.password.length < 6) {
+    return json({ error: "password must be at least 6 characters" }, 400);
   }
 
-  return json({ error: "Invalid credentials" }, 401);
+  const resp = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${env.FIREBASE_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: body.email,
+        password: body.password,
+        displayName: body.displayName || undefined,
+        returnSecureToken: true,
+      }),
+    }
+  );
+  const data = (await resp.json()) as any;
+  if (!resp.ok) {
+    const msg = data.error?.message || "Register failed";
+    const friendly =
+      msg === "EMAIL_EXISTS"
+        ? "An account with this email already exists"
+        : msg.includes("WEAK_PASSWORD")
+          ? "Password should be at least 6 characters"
+          : msg;
+    return json({ error: friendly, code: msg }, 400);
+  }
+
+  const sessionToken = await mintSessionToken(
+    env,
+    data.localId || body.email,
+    body.email,
+    Number(data.expiresIn) || 3600
+  );
+  return json({
+    sessionToken,
+    userId: data.localId,
+    email: data.email || body.email,
+    expiresIn: String(data.expiresIn || 3600),
+  });
 }
 
 async function handleValidate(request: Request, env: Env): Promise<Response> {
@@ -134,7 +195,7 @@ async function handleLockdownCommand(request: Request, env: Env): Promise<Respon
   };
   return json({
     status: "queued",
-    message: "Lockdown command accepted (deliver via your push channel)",
+    message: "Lockdown command accepted",
     payload: {
       command: "lockdown",
       enable: String(body.enable ?? true),

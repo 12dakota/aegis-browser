@@ -60,7 +60,7 @@ class GeckoEngine(context: Context) : BrowserEngine {
             override fun onLoadRequest(
                 session: GeckoSession,
                 request: GeckoSession.NavigationDelegate.LoadRequest
-            ): GeckoResult<AllowOrDeny>? {
+            ): GeckoResult<GeckoSession.NavigationDelegate.AllowOrDeny>? {
                 val url = request.uri
                 val shouldBlock = navigationListener?.shouldOverrideUrlLoading(url) == true
                 return if (shouldBlock) {

@@ -4,6 +4,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.net.Uri
 import android.util.Log
 import com.aegis.browser.proxy.PacProxyManager
 
@@ -62,7 +63,7 @@ object DeviceOwnerHelper {
                 // For broadest compatibility we set the PAC via the recommended path.
                 dpm.setRecommendedGlobalProxy(
                     admin,
-                    android.net.ProxyInfo.buildPacProxy(pacUrl)
+                    android.net.ProxyInfo.buildPacProxy(Uri.parse(pacUrl))
                 )
                 Log.i(TAG, "Global PAC applied via DevicePolicyManager: $pacUrl")
                 true

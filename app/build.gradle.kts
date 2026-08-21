@@ -75,7 +75,7 @@ dependencies {
 
     // GeckoView (Firefox engine) – second engine for dual-engine support
     // Version can be bumped; check https://maven.mozilla.org/maven2/org/mozilla/geckoview/
-    implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
+    // implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159") // disabled for low-RAM CI; re-enable on full machine
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

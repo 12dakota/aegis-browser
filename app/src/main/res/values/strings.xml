@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aegis Browser</string>
+    <string name="login_title">Sign in to Aegis</string>
+    <string name="lockdown_active">Device is under remote lockdown. Browsing is restricted by policy.</string>
+    <string name="proxy_active">Secure Proxy (PAC) Active</string>
+    <string name="parental_mode">Parental / Enterprise Controls Active</string>
+    <string name="url_blocked">This site is blocked by policy</string>
+    <string name="time_restricted">Browsing is not allowed at this time</string>
+    <string name="notification_channel_name">Aegis Security</string>
+    <string name="notification_channel_desc">Remote lockdown and policy alerts</string>
+    <string name="lockdown_notification_title">Aegis Lockdown Engaged</string>
+    <string name="lockdown_notification_body">Your organization has applied a remote lockdown policy to this browser.</string>
+</resources>

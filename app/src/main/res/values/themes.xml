@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AegisBrowser" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#0D47A1</item>
+        <item name="colorPrimaryContainer">#1565C0</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:statusBarColor">#0D47A1</item>
+        <item name="android:navigationBarColor">#0D47A1</item>
+    </style>
+    <style name="Theme.AegisBrowser.NoActionBar" parent="Theme.AegisBrowser">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>

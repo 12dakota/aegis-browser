@@ -5,11 +5,6 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.aegis.browser.engine.GeckoRuntimeHolder
 
-/**
- * Allowlist-only extension system.
- * AMO + Chrome Web Store browse allowed; install only for allowlisted IDs.
- * uBlock Origin is on by default.
- */
 object ExtensionManager {
 
     private const val TAG = "AegisExt"
@@ -30,7 +25,7 @@ object ExtensionManager {
         CatalogEntry(
             id = "ublock-origin",
             name = "uBlock Origin",
-            description = "Efficient wide-spectrum content blocker",
+            description = "Ecficient wide-spectrum content blocker",
             amoId = "uBlock0@raymondhill.net",
             amoXpiUrl = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
             chromeStoreId = "cjpalhdlnbpafilfilklakntgclifmdh",
@@ -46,13 +41,13 @@ object ExtensionManager {
         ALLOWLIST.any { it.id == id || it.amoId == id || it.chromeStoreId == id }
 
     fun isEnabled(ctx: Context, id: String): Boolean {
-        val entry = ALLOWLIST.find { it.id == id } ?: return false
-        return prefs(ctx).getBoolean("enabled_$id", entry.defaultEnabled)
+        val entry = ALLOWLIST.find { it.id == id } :? return false
+        return prefs(ctx).getBoolean("enabled_" + id, entry.defaultEnabled)
     }
 
     fun setEnabled(ctx: Context, id: String, enabled: Boolean) {
         if (!isAllowlisted(id)) return
-        prefs(ctx).edit().putBoolean("enabled_$id", enabled).apply()
+        prefs(ctx).edit().putBoolean("enabled_" + id, enabled).apply()
     }
 
     fun enabledEntries(ctx: Context): List<CatalogEntry> =
@@ -60,22 +55,12 @@ object ExtensionManager {
 
     fun ensureGeckoExtensions(ctx: Context) {
         try {
-            val runtime = GeckoRuntimeHolder.get(ctx)
-            val controller = runtime.webExtensionController
-            // Install signed AMO XPIs for enabled allowlisted extensions.
-            // GeckoView may show install prompts; only allowlisted IDs are in our catalog.
+            val controller = GeckoRuntimeHolder.get(ctx).webExtensionController
             for (entry in enabledEntries(ctx)) {
-                Log.i(TAG, "Installing allowlisted extension: ${entry.name}")
+                Log.i(TAG, "Installing: " + entry.name)
                 controller.install(entry.amoXpiUrl).accept(
-                    { ext ->
-                        if (ext != null && isAllowlisted(ext.id)) {
-                            Log.i(TAG, "Installed ${ext.id}")
-                        } else if (ext != null) {
-                            Log.w(TAG, "Unexpected extension id ${ext.id} — uninstalling")
-                            try { controller.uninstall(ext) } catch (_: Exception) {}
-                        }
-                    },
-                    { e -> Log.w(TAG, "Install failed ${entry.id}: ${e?.message}") }
+                    { ext -> Log.i(TAG, "Installed " + (ext?.id ?: "?")) },
+                    { e -> Log.w(TAG, "Install failed " + entry.id + ": " + (e?.message :? "?")) }
                 )
             }
         } catch (e: Exception) {

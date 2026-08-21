@@ -2,21 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Network & Proxy -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"
         tools:ignore="ProtectedPermissions" />
-
-    <!-- For background FCM remote lockdown commands -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- Optional Device Admin for deeper lockdown when app is Device/Profile Owner via MDM -->
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN"
         tools:ignore="ProtectedPermissions" />
 
@@ -34,7 +27,17 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
 
-        <!-- Main Browser Activity -->
+        <!-- Login is the launcher — cloud auth first, no Firebase crash path -->
+        <activity
+            android:name=".ui.LoginActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AegisBrowser.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.BrowserActivity"
             android:exported="true"
@@ -42,43 +45,17 @@
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <!-- Deep links / custom scheme for MDM or Firebase auth callbacks -->
-            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="aegis" android:host="auth" />
                 <data android:scheme="aegis" android:host="lockdown" />
             </intent-filter>
-            <!-- Handle http/https if set as default browser (optional, requires user confirmation) -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-            </intent-filter>
         </activity>
 
-        <!-- Login Activity -->
-        <activity
-            android:name=".ui.LoginActivity"
-            android:exported="false"
-            android:theme="@style/Theme.AegisBrowser.NoActionBar" />
+        <!-- FCM disabled for crash-safe builds without Firebase init.
+             Re-enable when Worker + FCM are fully wired. -->
 
-        <!-- Firebase Cloud Messaging for remote MDM / admin lockdown commands -->
-        <service
-            android:name=".mdm.AegisFirebaseMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-
-        <!-- Boot receiver to re-apply policies / lockdown after reboot -->
         <receiver
             android:name=".mdm.BootReceiver"
             android:exported="true"
@@ -89,7 +66,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Optional Device Admin Receiver for MDM Device Owner mode lockdown -->
         <receiver
             android:name=".mdm.AegisDeviceAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -102,15 +78,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- Managed Configuration (App Restrictions) metadata for MDM consoles -->
         <meta-data
             android:name="android.content.APP_RESTRICTIONS"
             android:resource="@xml/app_restrictions" />
-
-        <!-- Default notification channel for lockdown alerts -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="aegis_security" />
 
     </application>
 </manifest>

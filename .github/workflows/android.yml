@@ -33,32 +33,6 @@ jobs:
           sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
           yes | sdkmanager --licenses || true
 
-      - name: Placeholder google-services.json (if missing)
-        run: |
-          if [ ! -f app/google-services.json ]; then
-            mkdir -p app
-            cat > app/google-services.json << 'JSON'
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "project_id": "aegis-browser-placeholder",
-              "storage_bucket": "aegis-browser-placeholder.appspot.com"
-            },
-            "client": [{
-              "client_info": {
-                "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
-                "android_client_info": { "package_name": "com.aegis.browser" }
-              },
-              "oauth_client": [],
-              "api_key": [{ "current_key": "AIzaSyPlaceholderKeyReplaceWithRealFirebase" }],
-              "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
-            }],
-            "configuration_version": "1"
-          }
-          JSON
-            echo "Using placeholder google-services.json"
-          fi
-
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
@@ -87,7 +61,7 @@ jobs:
           body: |
             Debug APK from commit ${{ github.sha }}
             Dual-engine (Chromium WebView + GeckoView) with Cloudflare Gateway PAC.
-            Placeholder google-services.json — replace with real Firebase for production auth.
+            Cloudflare Worker auth — no Firebase client SDK in APK.
           files: app/build/outputs/apk/debug/*.apk
           draft: false
           prerelease: true

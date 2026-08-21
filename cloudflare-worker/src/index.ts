@@ -1,64 +1,37 @@
 /**
  * Aegis Auth & Policy Cloudflare Worker
- *
- * PURPOSE
- * -------
- * Hold all sensitive keys and secrets in the cloud (never in the APK).
- * The Android browser only ever receives short-lived tokens.
- *
- * Flow:
- * 1. App calls POST /auth/login  { email, password }  (or OAuth code)
- * 2. Worker verifies against Firebase Auth REST / Admin SDK
- * 3. Worker issues a short-lived Firebase custom token (or JWT)
- * 4. App does firebase.auth().signInWithCustomToken(token)
- *
- * Additional endpoints:
- * - POST /policy/push          (parent / MDM pushes new policy or lockdown)
- * - POST /extension/approve    (parent approves an extension for a child)
- * - POST /fcm/send             (send lockdown / install_extension command to device)
- *
- * Environment secrets (set in Cloudflare dashboard / wrangler secret):
- * - FIREBASE_API_KEY
- * - FIREBASE_PROJECT_ID
- * - FIREBASE_CLIENT_EMAIL
- * - FIREBASE_PRIVATE_KEY
- * - FCM_SERVER_KEY (or use HTTP v1)
- * - AEGIS_SIGNING_SECRET
+ * All secrets stay here. APK only receives short-lived session tokens.
  */
 
 export interface Env {
-  FIREBASE_API_KEY: string;
-  FIREBASE_PROJECT_ID: string;
-  FIREBASE_CLIENT_EMAIL: string;
-  FIREBASE_PRIVATE_KEY: string;
+  FIREBASE_API_KEY?: string;
   AEGIS_SIGNING_SECRET: string;
-  // Add FCM credentials as needed
+  /** Optional: allow demo login when Firebase is not configured */
+  DEMO_EMAIL?: string;
+  DEMO_PASSWORD?: string;
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // CORS for the Android app / parent console
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: corsHeaders(),
-      });
+      return new Response(null, { headers: corsHeaders() });
     }
 
     try {
       if (path === "/auth/login" && request.method === "POST") {
         return await handleLogin(request, env);
       }
-      if (path === "/auth/custom-token" && request.method === "POST") {
-        return await handleCustomToken(request, env);
+      if (path === "/auth/validate" && request.method === "POST") {
+        return await handleValidate(request, env);
       }
       if (path === "/policy/lockdown" && request.method === "POST") {
         return await handleLockdownCommand(request, env);
       }
       if (path === "/health") {
-        return json({ status: "ok", service: "aegis-worker" });
+        return json({ status: "ok", service: "aegis-worker", auth: "cloudflare" });
       }
       return json({ error: "Not found" }, 404);
     } catch (e: any) {
@@ -68,69 +41,100 @@ export default {
 };
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const body = await request.json() as { email?: string; password?: string };
+  const body = (await request.json()) as { email?: string; password?: string };
   if (!body.email || !body.password) {
     return json({ error: "email and password required" }, 400);
   }
 
-  // Call Firebase Auth REST API (signInWithPassword)
-  const resp = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${env.FIREBASE_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: body.email,
-        password: body.password,
-        returnSecureToken: true,
-      }),
+  // Path A: Firebase Identity Toolkit (secrets only on Worker)
+  if (env.FIREBASE_API_KEY) {
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${env.FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: body.email,
+          password: body.password,
+          returnSecureToken: true,
+        }),
+      }
+    );
+    const data = (await resp.json()) as any;
+    if (!resp.ok) {
+      return json({ error: data.error?.message || "Login failed" }, 401);
     }
-  );
-
-  const data = await resp.json() as any;
-  if (!resp.ok) {
-    return json({ error: data.error?.message || "Login failed" }, 401);
+    const sessionToken = await mintSessionToken(
+      env,
+      data.localId || body.email,
+      body.email,
+      3600
+    );
+    return json({
+      sessionToken,
+      userId: data.localId,
+      email: body.email,
+      expiresIn: "3600",
+      // legacy fields for older clients
+      idToken: data.idToken,
+      localId: data.localId,
+    });
   }
 
-  // Optionally mint a shorter-lived custom token here using Firebase Admin
-  // For now return the idToken + refreshToken (client should still prefer custom token flow)
-  return json({
-    idToken: data.idToken,
-    refreshToken: data.refreshToken,
-    localId: data.localId,
-    expiresIn: data.expiresIn,
-  });
+  // Path B: Demo credentials (dev only)
+  if (
+    env.DEMO_EMAIL &&
+    env.DEMO_PASSWORD &&
+    body.email === env.DEMO_EMAIL &&
+    body.password === env.DEMO_PASSWORD
+  ) {
+    const sessionToken = await mintSessionToken(env, "demo-user", body.email, 3600);
+    return json({
+      sessionToken,
+      userId: "demo-user",
+      email: body.email,
+      expiresIn: "3600",
+    });
+  }
+
+  // Path C: Accept any non-empty credentials in development if no secrets configured
+  // REMOVE this path for production — set FIREBASE_API_KEY or DEMO_* secrets.
+  if (!env.FIREBASE_API_KEY && !env.DEMO_EMAIL) {
+    const sessionToken = await mintSessionToken(
+      env,
+      body.email,
+      body.email,
+      3600
+    );
+    return json({
+      sessionToken,
+      userId: body.email,
+      email: body.email,
+      expiresIn: "3600",
+      warning: "dev-mode-open-login",
+    });
+  }
+
+  return json({ error: "Invalid credentials" }, 401);
 }
 
-async function handleCustomToken(request: Request, env: Env): Promise<Response> {
-  // Production: verify a session or parent-approved code, then use Firebase Admin
-  // to createCustomToken(uid). Requires the service account private key in env.
-  // This is the recommended path so the APK never sees long-lived credentials.
-  return json({
-    message: "Implement createCustomToken with Firebase Admin SDK (service account)",
-    note: "Store FIREBASE_PRIVATE_KEY as a Cloudflare secret. Never ship it in the APK.",
-  });
+async function handleValidate(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as { sessionToken?: string };
+  if (!body.sessionToken) return json({ error: "sessionToken required" }, 400);
+  const ok = await verifySessionToken(env, body.sessionToken);
+  return json({ valid: ok });
 }
 
 async function handleLockdownCommand(request: Request, env: Env): Promise<Response> {
-  const body = await request.json() as {
-    deviceFcmToken?: string;
+  const body = (await request.json()) as {
+    deviceId?: string;
     enable?: boolean;
     reason?: string;
     enrollmentToken?: string;
   };
-
-  if (!body.deviceFcmToken) {
-    return json({ error: "deviceFcmToken required" }, 400);
-  }
-
-  // In production: send FCM data message with command=lockdown
-  // using the FCM HTTP v1 API and a short-lived OAuth token from the service account.
-  // The Android app validates the enrollmentToken / JWT before applying.
-
   return json({
     status: "queued",
-    message: "Lockdown command would be sent via FCM in production",
+    message: "Lockdown command accepted (deliver via your push channel)",
     payload: {
       command: "lockdown",
       enable: String(body.enable ?? true),
@@ -140,13 +144,51 @@ async function handleLockdownCommand(request: Request, env: Env): Promise<Respon
   });
 }
 
+async function mintSessionToken(
+  env: Env,
+  userId: string,
+  email: string,
+  expiresIn: number
+): Promise<string> {
+  const secret = env.AEGIS_SIGNING_SECRET || "aegis-dev-signing-secret-change-me";
+  const exp = Math.floor(Date.now() / 1000) + expiresIn;
+  const payload = btoa(JSON.stringify({ sub: userId, email, exp }));
+  const sig = await hmacSign(secret, payload);
+  return `aegis.${payload}.${sig}`;
+}
+
+async function verifySessionToken(env: Env, token: string): Promise<boolean> {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3 || parts[0] !== "aegis") return false;
+    const secret = env.AEGIS_SIGNING_SECRET || "aegis-dev-signing-secret-change-me";
+    const expected = await hmacSign(secret, parts[1]);
+    if (expected !== parts[2]) return false;
+    const payload = JSON.parse(atob(parts[1]));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hmacSign(secret: string, data: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(),
-    },
+    headers: { "Content-Type": "application/json", ...corsHeaders() },
   });
 }
 

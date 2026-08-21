@@ -29,7 +29,7 @@ import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
-import com.google.firebase.auth.FirebaseAuth
+import com.aegis.browser.auth.SessionStore
 
 /**
  * Chrome-like browser shell — entirely our UI and control code.
@@ -51,7 +51,6 @@ class BrowserActivity : AppCompatActivity() {
     private lateinit var engineBadge: TextView
     private lateinit var tabCountBtn: TextView
 
-    private val auth = FirebaseAuth.getInstance()
     private val policyManager get() = AegisApplication.instance.policyManager
     private val pacManager get() = AegisApplication.instance.pacProxyManager
 
@@ -68,7 +67,7 @@ class BrowserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (auth.currentUser == null) {
+        if (!SessionStore.isLoggedIn(this)) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
@@ -510,7 +509,7 @@ class BrowserActivity : AppCompatActivity() {
             Chrome-like shell — our own code.
 
             Engines: Chromium (WebView) + Gecko (GeckoView)
-            Auth: Firebase (required)
+            Auth: Cloudflare Worker (required)
             Proxy: Cloudflare Gateway PAC
             Controls: MDM + parental policy + remote lockdown
 

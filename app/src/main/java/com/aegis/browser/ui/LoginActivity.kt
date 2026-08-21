@@ -2,29 +2,30 @@ package com.aegis.browser.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.aegis.browser.AegisApplication
-import com.google.firebase.auth.FirebaseAuth
+import com.aegis.browser.auth.CloudflareAuth
+import com.aegis.browser.auth.SessionStore
 import kotlinx.coroutines.launch
 
 /**
- * Mandatory login. No anonymous or skip mode.
- * In production this will call the Cloudflare Worker to exchange credentials
- * for short-lived tokens so that long-lived secrets never live in the APK.
+ * Launcher activity. Mandatory login via Cloudflare Worker only.
+ * No Firebase client SDK on this path — secrets stay in the cloud.
  */
 class LoginActivity : AppCompatActivity() {
-
-    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (auth.currentUser != null) {
+        if (SessionStore.isLoggedIn(this)) {
             proceedToBrowser()
             return
         }
@@ -43,7 +44,7 @@ class LoginActivity : AppCompatActivity() {
         }
 
         val subtitle = TextView(this).apply {
-            text = "Secure parental & enterprise browser\nLogin is required"
+            text = "Secure parental & enterprise browser\nLogin is required (Cloudflare)"
             textSize = 14f
             setTextColor(0xFFBBDEFB.toInt())
             setPadding(0, 0, 0, 48)
@@ -55,15 +56,27 @@ class LoginActivity : AppCompatActivity() {
             setHintTextColor(0xFF666666.toInt())
             setBackgroundColor(0xFFFFFFFF.toInt())
             setPadding(24, 24, 24, 24)
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
         }
 
         val password = EditText(this).apply {
             hint = "Password"
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setTextColor(0xFF000000.toInt())
             setHintTextColor(0xFF666666.toInt())
             setBackgroundColor(0xFFFFFFFF.toInt())
             setPadding(24, 24, 24, 24)
+        }
+
+        val progress = ProgressBar(this).apply {
+            visibility = View.GONE
+        }
+
+        val status = TextView(this).apply {
+            textSize = 13f
+            setTextColor(0xFFFFCDD2.toInt())
+            setPadding(0, 16, 0, 0)
         }
 
         val loginBtn = Button(this).apply {
@@ -75,12 +88,12 @@ class LoginActivity : AppCompatActivity() {
                     Toast.makeText(this@LoginActivity, "Email and password required", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                signIn(e, p)
+                signIn(e, p, progress, status, this)
             }
         }
 
         val note = TextView(this).apply {
-            text = "\nAll authentication secrets are held in the cloud\n(Cloudflare Worker + Firebase).\nNothing sensitive is stored in the app."
+            text = "\nAuth is handled by Cloudflare Workers.\nNo secrets are stored in the APK."
             textSize = 12f
             setTextColor(0xFF90CAF9.toInt())
             setPadding(0, 48, 0, 0)
@@ -91,30 +104,61 @@ class LoginActivity : AppCompatActivity() {
         root.addView(email)
         root.addView(password)
         root.addView(loginBtn)
+        root.addView(progress)
+        root.addView(status)
         root.addView(note)
         setContentView(root)
     }
 
-    private fun signIn(email: String, password: String) {
-        // Production path:
-        // 1. Call Cloudflare Worker /auth/login with email+password (or OAuth code)
-        // 2. Worker validates, talks to Firebase Admin, returns short-lived custom token
-        // 3. Client does signInWithCustomToken(token)
-        // For scaffold we use direct Firebase Auth (still protected by Firebase security rules)
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnSuccessListener {
+    private fun signIn(
+        email: String,
+        password: String,
+        progress: ProgressBar,
+        status: TextView,
+        btn: Button
+    ) {
+        progress.visibility = View.VISIBLE
+        btn.isEnabled = false
+        status.text = ""
+
+        lifecycleScope.launch {
+            val result = CloudflareAuth.login(email, password)
+            progress.visibility = View.GONE
+            btn.isEnabled = true
+
+            if (result.success && !result.sessionToken.isNullOrBlank()) {
+                SessionStore.saveSession(
+                    context = this@LoginActivity,
+                    sessionToken = result.sessionToken,
+                    userId = result.userId ?: email,
+                    email = result.email ?: email,
+                    expiresInSeconds = result.expiresIn,
+                    orgId = result.orgId
+                )
                 proceedToBrowser()
+            } else {
+                status.text = result.error ?: "Login failed"
+                Toast.makeText(
+                    this@LoginActivity,
+                    result.error ?: "Login failed",
+                    Toast.LENGTH_LONG
+                ).show()
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+        }
     }
 
     private fun proceedToBrowser() {
-        AegisApplication.instance.applicationScope.launch {
-            AegisApplication.instance.policyManager.refreshPolicies()
-            AegisApplication.instance.policyManager.startFirebaseListener()
-            AegisApplication.instance.pacProxyManager.applyDefaultPac()
+        try {
+            AegisApplication.instance.applicationScope.launch {
+                try {
+                    AegisApplication.instance.policyManager.refreshPolicies()
+                    AegisApplication.instance.policyManager.startCloudPolicyListener()
+                    AegisApplication.instance.pacProxyManager.applyDefaultPac()
+                } catch (e: Exception) {
+                    // never block navigation on policy refresh
+                }
+            }
+        } catch (_: Exception) {
         }
         startActivity(Intent(this, BrowserActivity::class.java))
         finish()

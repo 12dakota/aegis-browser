@@ -9,16 +9,14 @@ import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.proxy.PacProxyManager
-import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Aegis Browser Application entry point.
- * Dual-engine (Chromium + Gecko), mandatory Firebase auth, Cloudflare Gateway PAC,
- * MDM / Device Owner lockdown support.
+ * Crash-safe entry point.
+ * Auth is Cloudflare Worker based — Firebase is NOT required to start the app.
  */
 class AegisApplication : Application() {
 
@@ -34,23 +32,46 @@ class AegisApplication : Application() {
         super.onCreate()
         instance = this
 
-        FirebaseApp.initializeApp(this)
-        createNotificationChannel()
+        try {
+            createNotificationChannel()
+        } catch (e: Exception) {
+            Log.w(TAG, "Notification channel failed", e)
+        }
 
-        EngineSelector.init(this)
-        policyManager = PolicyManager(this)
-        pacProxyManager = PacProxyManager(this)
+        try {
+            EngineSelector.init(this)
+        } catch (e: Exception) {
+            Log.w(TAG, "EngineSelector init failed", e)
+        }
+
+        // Policy + PAC must never crash the process
+        try {
+            policyManager = PolicyManager(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "PolicyManager init failed – using empty shell", e)
+            policyManager = PolicyManager(this, forcePlainPrefs = true)
+        }
+
+        try {
+            pacProxyManager = PacProxyManager(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "PacProxyManager init failed", e)
+            // rethrow only if we literally cannot continue — construct minimal
+            pacProxyManager = PacProxyManager(this)
+        }
 
         applicationScope.launch {
-            policyManager.refreshPolicies()
-            pacProxyManager.applyDefaultPac()
-
-            // Strongest path: if we are Device/Profile Owner, push the PAC system-wide
-            val pacUrl = policyManager.currentPolicy.pacUrl
-                .ifBlank { PacProxyManager.DEFAULT_PAC_URL }
-            val applied = DeviceOwnerHelper.applyGlobalPac(this@AegisApplication, pacUrl)
-            Log.i("AegisApp", "Device Owner status: ${DeviceOwnerHelper.getStatusSummary(this@AegisApplication)}")
-            Log.i("AegisApp", "Global PAC applied: $applied")
+            try {
+                policyManager.refreshPolicies()
+                pacProxyManager.applyDefaultPac()
+                val pacUrl = policyManager.currentPolicy.pacUrl
+                    .ifBlank { PacProxyManager.DEFAULT_PAC_URL }
+                val applied = DeviceOwnerHelper.applyGlobalPac(this@AegisApplication, pacUrl)
+                Log.i(TAG, "Device Owner: ${DeviceOwnerHelper.getStatusSummary(this@AegisApplication)}")
+                Log.i(TAG, "Global PAC applied: $applied")
+            } catch (e: Exception) {
+                Log.w(TAG, "Background policy/PAC refresh failed", e)
+            }
         }
     }
 
@@ -63,12 +84,12 @@ class AegisApplication : Application() {
             ).apply {
                 description = getString(R.string.notification_channel_desc)
             }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
     companion object {
+        private const val TAG = "AegisApp"
         const val CHANNEL_ID = "aegis_security"
         lateinit var instance: AegisApplication
             private set

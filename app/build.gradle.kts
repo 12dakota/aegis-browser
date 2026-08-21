@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.gms.google-services")
+    // google-services removed — auth is Cloudflare Worker only (no Firebase client SDK)
 }
 
 android {
@@ -12,13 +12,10 @@ android {
         applicationId = "com.aegis.browser"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0-cloudauth"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Managed configurations for MDM (App Restrictions)
-        // These keys are exposed to MDM consoles for remote config / lockdown
         resValue("string", "app_name", "Aegis Browser")
     }
 
@@ -50,31 +47,20 @@ android {
 }
 
 dependencies {
-    // Core Android
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-ktx:1.9.3")
-    implementation("androidx.webkit:webkit:1.12.1") // Enhanced WebView (Chromium-based)
+    implementation("androidx.webkit:webkit:1.12.1")
 
-    // Firebase (Auth + Firestore + Messaging for remote lockdown commands)
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-messaging-ktx")
-    implementation("com.google.firebase:firebase-analytics-ktx")
+    // No Firebase client SDK — auth + policy secrets live in Cloudflare Workers
 
-    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
-
-    // Security / Encrypted prefs for lockdown state
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // GeckoView (Firefox engine) – second engine for dual-engine support
-    // Version can be bumped; check https://maven.mozilla.org/maven2/org/mozilla/geckoview/
+    // Dual engine
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
 
     testImplementation("junit:junit:4.13.2")

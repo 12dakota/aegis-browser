@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AegisBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
+        <item name="colorPrimary">#ADC6FF</item>
+        <item name="colorOnPrimary">#122F60</item>
+        <item name="colorPrimaryContainer">#2B4678</item>
+        <item name="colorOnPrimaryContainer">#D8E2FF</item>
+        <item name="colorSecondary">#BEC6DC</item>
+        <item name="colorOnSecondary">#283041</item>
+        <item name="colorSecondaryContainer">#3E4759</item>
+        <item name="colorTertiary">#DDBCE0</item>
+        <item name="colorSurface">#121318</item>
+        <item name="colorOnSurface">#E2E2E9</item>
+        <item name="colorSurfaceContainer">#1E2025</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+    </style>
+</resources>

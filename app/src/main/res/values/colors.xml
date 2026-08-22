@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Seeded Material 3 palette (used when dynamic color is unavailable). -->
+    <color name="md_primary">#445E91</color>
+    <color name="md_on_primary">#FFFFFF</color>
+    <color name="md_primary_container">#D8E2FF</color>
+    <color name="md_on_primary_container">#001A41</color>
+    <color name="md_secondary">#565E71</color>
+    <color name="md_on_secondary">#FFFFFF</color>
+    <color name="md_secondary_container">#DAE2F9</color>
+    <color name="md_tertiary">#705575</color>
+    <color name="md_surface">#F9F9FF</color>
+    <color name="md_on_surface">#1A1C1E</color>
+    <color name="md_surface_container">#EEEFF7</color>
+</resources>

@@ -1,15 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AegisBrowser" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#0D47A1</item>
-        <item name="colorPrimaryContainer">#1565C0</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="android:statusBarColor">#202124</item>
-        <item name="android:navigationBarColor">#202124</item>
-        <item name="android:windowLightStatusBar">false</item>
+    <!-- Google Material 3 Expressive (2025–26 “next Material” / Material You).
+         Dynamic color follows wallpaper on Android 12+. -->
+    <style name="Theme.AegisBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/md_primary</item>
+        <item name="colorOnPrimary">@color/md_on_primary</item>
+        <item name="colorPrimaryContainer">@color/md_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/md_on_primary_container</item>
+        <item name="colorSecondary">@color/md_secondary</item>
+        <item name="colorOnSecondary">@color/md_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/md_secondary_container</item>
+        <item name="colorTertiary">@color/md_tertiary</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="colorSurfaceContainer">@color/md_surface_container</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:fitsSystemWindows">true</item>
+        <item name="android:navigationBarDividerColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Material3.Corner.Medium</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Material3.Corner.Large</item>
     </style>
+
     <style name="Theme.AegisBrowser.NoActionBar" parent="Theme.AegisBrowser">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>

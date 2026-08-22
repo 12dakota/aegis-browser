@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
+import com.google.android.material.color.DynamicColors
 import com.aegis.browser.BuildConfig
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.mdm.DeviceOwnerHelper
@@ -32,6 +33,11 @@ class AegisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        try {
+            DynamicColors.applyToActivitiesIfAvailable(this)
+        } catch (e: Exception) {
+            Log.w(TAG, "DynamicColors apply failed", e)
+        }
 
         try {
             createNotificationChannel()

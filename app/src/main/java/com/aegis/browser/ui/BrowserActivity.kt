@@ -31,6 +31,7 @@ import com.aegis.browser.BuildConfig
 import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
+import com.aegis.browser.engine.ChromiumEngine
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore
@@ -868,15 +869,20 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun showAbout() {
+        val chromium = try {
+            ChromiumEngine.chromiumVersionSummary(this)
+        } catch (_: Exception) {
+            "System WebView"
+        }
         val msg = """
             Aegis Browser
             Chrome-like shell - our own code.
 
-            Engines: Chromium (WebView) + Gecko (GeckoView)
-            Auth: Cloudflare Worker (required)
-            Proxy: Cloudflare Gateway PAC
-            Extensions: allowlist only (uBlock Origin default)
-            Controls: MDM + parental policy + remote lockdown
+            Engines: Chromium (Google System WebView) + Gecko (GeckoView)
+            Chromium provider: $chromium
+            Auth: Cloudflare Worker (family) / open (adult)
+            Proxy: Cloudflare Gateway PAC (family)
+            Extensions: Gecko / AMO WebExtensions
 
             ${DeviceOwnerHelper.getStatusSummary(this)}
             Active engine: ${tabManager.activeTab?.engineType}

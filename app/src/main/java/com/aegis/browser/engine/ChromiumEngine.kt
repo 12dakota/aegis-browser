@@ -3,16 +3,33 @@ package com.aegis.browser.engine
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
+import android.util.Log
 import android.view.View
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.aegis.browser.AegisApplication
 
 /**
- * Chromium / Blink engine implemented via AndroidX WebView.
- * This is the default engine for most sites (Google properties, general web, etc.).
+ * Chromium / Blink engine.
+ *
+ * On Android, Google's Chromium is delivered as **Android System WebView**
+ * (or Trichrome on modern devices). There is no official GeckoView-style
+ * Maven artifact that embeds a full standalone Chromium binary into the APK.
+ *
+ * This class uses AndroidX WebView + WebKit APIs against that Google Chromium
+ * engine so the "C" engine is real Chromium (version reported by the system),
+ * kept current via Play Store WebView updates — same family as Chrome.
+ *
+ * Full offline-bundled Content Shell would require building Chromium from source
+ * (multi-GB, hours) — see docs/CHROMIUM_ENGINE.md.
  */
 class ChromiumEngine(context: Context) : BrowserEngine {
 
@@ -22,18 +39,44 @@ class ChromiumEngine(context: Context) : BrowserEngine {
     private val webView = WebView(context).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
         settings.allowFileAccess = false
         settings.allowContentAccess = false
-        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.mediaPlaybackRequiresUserGesture = true
+        settings.userAgentString = settings.userAgentString // keep system Chromium UA
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            settings.safeBrowsingEnabled = true
+        }
+        // AndroidX WebKit extras when the installed Chromium WebView supports them
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                @Suppress("DEPRECATION")
+                WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_OFF)
+            }
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
+                WebSettingsCompat.setOffscreenPreRaster(settings, true)
+            }
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE)) {
+                WebSettingsCompat.setSafeBrowsingEnabled(settings, true)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "WebKit feature setup: ${e.message}")
+        }
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
     }
 
     private var progressListener: ((Int) -> Unit)? = null
     private var navigationListener: BrowserEngine.NavigationListener? = null
 
     init {
+        Log.i(TAG, "Chromium WebView provider: " + chromiumVersionSummary(context))
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return true
@@ -42,9 +85,11 @@ class ChromiumEngine(context: Context) : BrowserEngine {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 navigationListener?.onPageStarted(url)
-                // Keep PAC in sync
-                AegisApplication.instance.pacProxyManager.evaluateAndSetProxy(url ?: "")
-                AegisApplication.instance.pacProxyManager.configureWebViewProxy(webView)
+                try {
+                    AegisApplication.instance.pacProxyManager.evaluateAndSetProxy(url ?: "")
+                    AegisApplication.instance.pacProxyManager.configureWebViewProxy(webView)
+                } catch (_: Exception) {
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -73,41 +118,41 @@ class ChromiumEngine(context: Context) : BrowserEngine {
     }
 
     override fun getView(): View = webView
-
-    override fun loadUrl(url: String) {
-        webView.loadUrl(url)
-    }
-
+    override fun loadUrl(url: String) { webView.loadUrl(url) }
     override fun canGoBack(): Boolean = webView.canGoBack()
     override fun goBack() { if (webView.canGoBack()) webView.goBack() }
-
     override fun canGoForward(): Boolean = webView.canGoForward()
     override fun goForward() { if (webView.canGoForward()) webView.goForward() }
-
     override fun reload() = webView.reload()
     override fun stopLoading() = webView.stopLoading()
-
     override fun getCurrentUrl(): String? = webView.url
     override fun getTitle(): String? = webView.title
-
-    override fun setProgressListener(listener: ((Int) -> Unit)?) {
-        progressListener = listener
-    }
-
+    override fun setProgressListener(listener: ((Int) -> Unit)?) { progressListener = listener }
     override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) {
         navigationListener = listener
     }
-
     override fun destroy() {
         webView.stopLoading()
         webView.destroy()
     }
+    override fun onResume() { webView.onResume() }
+    override fun onPause() { webView.onPause() }
 
-    override fun onResume() {
-        webView.onResume()
-    }
+    companion object {
+        private const val TAG = "AegisChromium"
 
-    override fun onPause() {
-        webView.onPause()
+        /** Human-readable Google Chromium / WebView package version on this device. */
+        fun chromiumVersionSummary(context: Context): String {
+            return try {
+                val pkg = WebViewCompat.getCurrentWebViewPackage(context)
+                if (pkg != null) {
+                    "${pkg.packageName} ${pkg.versionName}"
+                } else {
+                    "System WebView (package unknown)"
+                }
+            } catch (e: Exception) {
+                "WebView ${WebView.getCurrentWebViewPackage()?.versionName ?: "?"}"
+            }
+        }
     }
 }

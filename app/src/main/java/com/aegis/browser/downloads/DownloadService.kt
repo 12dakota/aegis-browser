@@ -5,6 +5,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.ContentValues
+import android.net.Uri
+import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import android.os.Build
 import android.os.Environment
 import android.os.IBinder
@@ -63,24 +67,34 @@ class DownloadService : Service() {
         }
         emit(DownloadCoordinator.STATE_CONNECTING, 0, "Connecting to host")
         var conn: HttpURLConnection? = null
+        var pendingUri: Uri? = null
         try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = true
                 connectTimeout = 20_000
-                readTimeout = 30_000
+                readTimeout = 60_000
                 requestMethod = "GET"
-                setRequestProperty("User-Agent", ua ?: "Provonlong/1.0")
+                setRequestProperty("User-Agent", ua ?: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36")
                 connect()
             }
             val code = conn.responseCode
             if (code !in 200..299) throw IllegalStateException("HTTP $code")
             val total = conn.contentLengthLong
-            val dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
-            if (!dir.exists()) dir.mkdirs()
-            val outFile = uniqueFile(dir, name)
+            val mime = conn.contentType?.substringBefore(";")?.trim().orEmpty().ifBlank {
+                val ext = name.substringAfterLast('.', "")
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            pendingUri = contentResolver.insert(collection, values)
+                ?: throw IllegalStateException("Could not create Downloads entry")
             emit(DownloadCoordinator.STATE_TRANSFERRING, 0, "Transferring the file to your device")
             conn.inputStream.use { input ->
-                outFile.outputStream().use { output ->
+                contentResolver.openOutputStream(pendingUri!!)!!.use { output ->
                     val buf = ByteArray(64 * 1024)
                     var read: Int
                     var done = 0L
@@ -98,12 +112,28 @@ class DownloadService : Service() {
                             )
                         }
                     }
+                    output.flush()
                 }
             }
-            emit(DownloadCoordinator.STATE_FINISHED, 100, "Download finished")
-            Log.i(TAG, "Saved ${outFile.absolutePath}")
+            val doneVals = ContentValues().apply {
+                put(MediaStore.Downloads.IS_PENDING, 0)
+            }
+            contentResolver.update(pendingUri!!, doneVals, null, null)
+            val uriStr = pendingUri.toString()
+            DownloadCoordinator.broadcast(
+                ctx, id, name, host,
+                DownloadCoordinator.STATE_FINISHED, 100,
+                "Saved to Downloads",
+                uriStr
+            )
+            getSystemService(NotificationManager::class.java).notify(
+                NOTIF_BASE + id.toInt(),
+                note(name, "Saved to Downloads — tap to open", 100, false, uriStr)
+            )
+            Log.i(TAG, "Saved to MediaStore $uriStr")
         } catch (e: Exception) {
             Log.w(TAG, "download failed", e)
+            pendingUri?.let { runCatching { contentResolver.delete(it, null, null) } }
             emit(DownloadCoordinator.STATE_FAILED, 0, e.message ?: "Download failed")
         } finally {
             conn?.disconnect()
@@ -132,8 +162,16 @@ class DownloadService : Service() {
         )
     }
 
-    private fun note(title: String, text: String, pct: Int, indeterminate: Boolean) =
-        NotificationCompat.Builder(this, CHANNEL)
+    private fun note(title: String, text: String, pct: Int, indeterminate: Boolean, fileUri: String? = null): android.app.Notification {
+        val open = if (!fileUri.isNullOrBlank()) {
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse(fileUri), "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } else {
+            Intent(this, BrowserActivity::class.java)
+        }
+        return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_download)
@@ -142,11 +180,12 @@ class DownloadService : Service() {
             .setProgress(100, pct, indeterminate)
             .setContentIntent(
                 PendingIntent.getActivity(
-                    this, 0, Intent(this, BrowserActivity::class.java),
+                    this, title.hashCode(), open,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
             .build()
+    }
 
     companion object {
         const val EXTRA_URL = "url"

@@ -83,10 +83,10 @@ class BrowserActivity : AppCompatActivity() {
             val host = intent.getStringExtra(DownloadCoordinator.EXTRA_HOST).orEmpty()
             val msg = intent.getStringExtra(DownloadCoordinator.EXTRA_MESSAGE).orEmpty()
             val prog = intent.getIntExtra(DownloadCoordinator.EXTRA_PROGRESS, 0)
-            // Show HUD on phase changes / finish (not every percent)
+            val uri = intent.getStringExtra(DownloadCoordinator.EXTRA_URI)
             if (state != DownloadCoordinator.STATE_TRANSFERRING || prog == 0 || prog >= 100) {
                 runOnUiThread {
-                    DownloadHud.show(this@BrowserActivity, host, name, state, prog, msg)
+                    DownloadHud.show(this@BrowserActivity, host, name, state, prog, msg, uri)
                 }
             }
         }

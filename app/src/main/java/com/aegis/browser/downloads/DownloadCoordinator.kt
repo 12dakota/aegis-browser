@@ -17,6 +17,7 @@ object DownloadCoordinator {
     const val EXTRA_STATE = "state"
     const val EXTRA_PROGRESS = "progress"
     const val EXTRA_MESSAGE = "message"
+    const val EXTRA_URI = "uri"
 
     const val STATE_CONNECTING = "connecting"
     const val STATE_TRANSFERRING = "transferring"
@@ -78,7 +79,7 @@ object DownloadCoordinator {
 
     fun host(url: String): String = Uri.parse(url).host ?: "host"
 
-    fun broadcast(ctx: Context, id: Long, name: String, host: String, state: String, progress: Int, message: String) {
+    fun broadcast(ctx: Context, id: Long, name: String, host: String, state: String, progress: Int, message: String, uri: String? = null) {
         ctx.sendBroadcast(
             Intent(ACTION_PROGRESS)
                 .setPackage(ctx.packageName)
@@ -88,6 +89,7 @@ object DownloadCoordinator {
                 .putExtra(EXTRA_STATE, state)
                 .putExtra(EXTRA_PROGRESS, progress)
                 .putExtra(EXTRA_MESSAGE, message)
+                .putExtra(EXTRA_URI, uri)
         )
     }
 }

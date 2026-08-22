@@ -307,22 +307,113 @@ object ExtensionManager {
 
     /**
      * Best URL to open for configuration UI of an installed extension.
-     * Prefer options page; fall back to common popup paths under moz-extension://
+     * Prefer options page from manifest; then well-known pages under baseUrl.
      */
     fun optionsOrPopupUrl(installed: InstalledExtension): String? {
-        val opt = installed.optionsPageUrl
-        if (!opt.isNullOrBlank()) return opt
+        val opt = installed.optionsPageUrl?.trim()
+        if (!opt.isNullOrBlank()) {
+            return if (opt.startsWith("http") || opt.startsWith("moz-extension:")) opt
+            else {
+                val base = installed.baseUrl?.trimEnd('/') ?: return opt
+                if (opt.startsWith("/")) "$base$opt" else "$base/$opt"
+            }
+        }
         val base = installed.baseUrl?.trimEnd('/') ?: return null
-        // Common AMO extension popup/options paths
-        val candidates = listOf(
+        // Order: options first, then dashboard (uBlock), then popup
+        return listOf(
             "$base/options.html",
+            "$base/options_ui/options.html",
             "$base/options_ui.html",
             "$base/settings.html",
+            "$base/dashboard.html",
+            "$base/1p-filters.html",
             "$base/popup.html",
             "$base/popup/index.html",
-            "$base/dashboard.html"
+            "$base/index.html"
+        ).firstOrNull()
+    }
+
+    /**
+     * Re-query Gecko for a fresh MetaData (baseUrl / optionsPageUrl often fill in after startup).
+     */
+    fun resolveOptionsPage(ctx: Context, extensionId: String, onResult: (String?) -> Unit) {
+        try {
+            ensurePromptDelegate(ctx)
+            val controller = GeckoRuntimeHolder.get(ctx).webExtensionController
+            controller.list().accept(
+                { list ->
+                    val ext = list?.find { it.id == extensionId }
+                    if (ext == null) {
+                        onResult(null)
+                        return@accept
+                    }
+                    val md = ext.metaData
+                    val base = md?.baseUrl?.trimEnd('/')
+                    var opt = md?.optionsPageUrl?.trim()
+                    if (!opt.isNullOrBlank()) {
+                        if (!opt.startsWith("http") && !opt.startsWith("moz-extension:") && base != null) {
+                            opt = if (opt.startsWith("/")) "$base$opt" else "$base/$opt"
+                        }
+                        onResult(opt)
+                        return@accept
+                    }
+                    if (base.isNullOrBlank()) {
+                        onResult(null)
+                        return@accept
+                    }
+                    // Prefer options, then extension-specific known pages
+                    val id = extensionId.lowercase()
+                    val preferred = when {
+                        id.contains("ublock") -> listOf(
+                            "$base/dashboard.html",
+                            "$base/options.html",
+                            "$base/popup.html"
+                        )
+                        id.contains("privacy-badger") || id.contains("badger") -> listOf(
+                            "$base/skin/popup.html",
+                            "$base/popup.html",
+                            "$base/options.html"
+                        )
+                        else -> listOf(
+                            "$base/options.html",
+                            "$base/options_ui/options.html",
+                            "$base/settings.html",
+                            "$base/dashboard.html",
+                            "$base/popup.html",
+                            "$base/popup/index.html"
+                        )
+                    }
+                    onResult(preferred.first())
+                },
+                { onResult(null) }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "resolveOptionsPage", e)
+            onResult(null)
+        }
+    }
+
+    fun listAllSettingsCandidates(installed: InstalledExtension): List<Pair<String, String>> {
+        val base = installed.baseUrl?.trimEnd('/') ?: return emptyList()
+        val items = mutableListOf<Pair<String, String>>()
+        val opt = installed.optionsPageUrl
+        if (!opt.isNullOrBlank()) {
+            val u = if (opt.startsWith("http") || opt.startsWith("moz-extension:")) opt
+            else if (opt.startsWith("/")) "$base$opt" else "$base/$opt"
+            items.add("Options (manifest)" to u)
+        }
+        val common = listOf(
+            "Options" to "$base/options.html",
+            "Dashboard" to "$base/dashboard.html",
+            "Popup / menu" to "$base/popup.html",
+            "Popup index" to "$base/popup/index.html",
+            "Settings" to "$base/settings.html",
+            "Filter lists" to "$base/1p-filters.html"
         )
-        return candidates.firstOrNull()
+        for ((label, url) in common) {
+            if (items.none { it.second == url }) items.add(label to url)
+        }
+        return items
     }
 
     fun grantedPermsSummary(ctx: Context, extensionId: String): String {

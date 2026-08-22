@@ -684,13 +684,131 @@ class BrowserActivity : AppCompatActivity() {
             Options page: ${ext.optionsPageUrl ?: "(none — will try popup paths)"}
         """.trimIndent()
 
-        val builder = AlertDialog.Builder(this)
+        AlertDialog.Builder(this)
             .setTitle(ext.name)
             .setMessage(msg)
-            .setPositiveButton("Open settings / menu") { _, _ ->
-                openExtensionUi(ext)
+            .setPositiveButton("Open settings") { _, _ -> openExtensionUi(ext) }
+            .setNeutralButton("Advanced") { _, _ -> showExtensionAdvanced(ext) }
+            .setNegativeButton("More…") { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle(ext.name)
+                    .setItems(arrayOf(
+                        if (ext.enabled) "Disable" else "Enable",
+                        "Pick settings page…",
+                        "Uninstall"
+                    )) { _, which ->
+                        when (which) {
+                            0 -> ExtensionManager.setExtensionEnabled(this, ext.id, !ext.enabled) { ok, m ->
+                                runOnUiThread {
+                                    Toast.makeText(this, if (ok) m else "Failed: $m", Toast.LENGTH_SHORT).show()
+                                    updateStatusBar()
+                                }
+                            }
+                            1 -> showExtensionPagesPicker(ext)
+                            2 -> AlertDialog.Builder(this)
+                                .setTitle("Uninstall ${ext.name}?")
+                                .setPositiveButton("Uninstall") { _, _ ->
+                                    ExtensionManager.uninstall(this, ext.id) { ok, m ->
+                                        runOnUiThread {
+                                            Toast.makeText(this, if (ok) "Uninstalled" else m, Toast.LENGTH_SHORT).show()
+                                            updateStatusBar()
+                                        }
+                                    }
+                                }
+                                .setNegativeButton("Cancel", null)
+                                .show()
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
-            .setNeutralButton(if (ext.enabled) "Disable" else "Enable") { _, _ ->
+            .show()
+    }
+
+    private fun openExtensionUi(ext: ExtensionManager.InstalledExtension) {
+        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+        Toast.makeText(this, "Resolving settings page…", Toast.LENGTH_SHORT).show()
+        ExtensionManager.resolveOptionsPage(this, ext.id) { resolved ->
+            runOnUiThread {
+                val url = resolved ?: ExtensionManager.optionsOrPopupUrl(ext)
+                if (url.isNullOrBlank()) {
+                    showExtensionPagesPicker(ext)
+                    return@runOnUiThread
+                }
+                openUrlInGeckoTab(url)
+            }
+        }
+    }
+
+    private fun openUrlInGeckoTab(url: String) {
+        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+        Toast.makeText(this, "Opening: " + url.take(48), Toast.LENGTH_SHORT).show()
+        val tab = tabManager.createTab(url)
+        tabManager.switchTo(tab.id)
+        showActiveTab()
+        refreshTabStrip()
+        // Force load in case createTab URL was rewritten
+        tab.engine?.loadUrl(url)
+        omnibox.setText(url)
+    }
+
+    private fun showExtensionPagesPicker(ext: ExtensionManager.InstalledExtension) {
+        val pages = ExtensionManager.listAllSettingsCandidates(ext)
+        if (pages.isEmpty()) {
+            Toast.makeText(
+                this,
+                "No settings page URL yet. Wait a few seconds after install, then Refresh in Extensions.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val labels = pages.map { it.first + "\n" + it.second.take(60) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(ext.name + " — pages")
+            .setItems(labels) { _, which ->
+                openUrlInGeckoTab(pages[which].second)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showExtensionAdvanced(ext: ExtensionManager.InstalledExtension) {
+        val perms = if (ext.permissions.isEmpty()) "(none listed in manifest)"
+            else ext.permissions.joinToString("\n• ", prefix = "• ")
+        val origins = if (ext.origins.isEmpty()) "(all / none listed)"
+            else ext.origins.take(12).joinToString("\n• ", prefix = "• ")
+        val granted = ExtensionManager.grantedPermsSummary(this, ext.id)
+        val msg = """
+            Advanced — ${ext.name}
+
+            Extension id:
+            ${ext.id}
+
+            Enabled: ${ext.enabled}
+            Version: ${ext.version}
+            baseUrl: ${ext.baseUrl ?: "(pending — refresh after install)"}
+            optionsPageUrl: ${ext.optionsPageUrl ?: "(none in manifest)"}
+
+            Required permissions:
+            $perms
+
+            Host permissions:
+            $origins
+
+            Granted at install:
+            ${granted.ifBlank { "(not recorded)" }}
+
+            Tip: Open settings uses the extension options page inside a Gecko tab.
+            Content scripts only run on Gecko engine tabs.
+        """.trimIndent()
+        AlertDialog.Builder(this)
+            .setTitle("Advanced settings")
+            .setMessage(msg)
+            .setPositiveButton("Open settings page") { _, _ -> openExtensionUi(ext) }
+            .setNeutralButton("Pick page…") { _, _ -> showExtensionPagesPicker(ext) }
+            .setNegativeButton(
+                if (ext.enabled) "Disable extension" else "Enable extension"
+            ) { _, _ ->
                 ExtensionManager.setExtensionEnabled(this, ext.id, !ext.enabled) { ok, m ->
                     runOnUiThread {
                         Toast.makeText(this, if (ok) m else "Failed: $m", Toast.LENGTH_SHORT).show()
@@ -698,39 +816,7 @@ class BrowserActivity : AppCompatActivity() {
                     }
                 }
             }
-            .setNegativeButton("Uninstall") { _, _ ->
-                AlertDialog.Builder(this)
-                    .setTitle("Uninstall ${ext.name}?")
-                    .setPositiveButton("Uninstall") { _, _ ->
-                        ExtensionManager.uninstall(this, ext.id) { ok, m ->
-                            runOnUiThread {
-                                Toast.makeText(this, if (ok) "Uninstalled" else m, Toast.LENGTH_SHORT).show()
-                                updateStatusBar()
-                            }
-                        }
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }
-        builder.show()
-    }
-
-    private fun openExtensionUi(ext: ExtensionManager.InstalledExtension) {
-        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
-        val url = ExtensionManager.optionsOrPopupUrl(ext)
-        if (url.isNullOrBlank()) {
-            Toast.makeText(
-                this,
-                "No options page for this extension. It still runs in the background on Gecko tabs.",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-        Toast.makeText(this, "Opening extension UI…", Toast.LENGTH_SHORT).show()
-        val tab = tabManager.createTab(url)
-        tabManager.switchTo(tab.id)
-        showActiveTab()
-        refreshTabStrip()
+            .show()
     }
 
     private fun showCatalogExtensionDetail(entry: ExtensionManager.CatalogEntry) {

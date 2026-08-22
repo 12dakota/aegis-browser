@@ -650,15 +650,35 @@ class BrowserActivity : AppCompatActivity() {
             }
 
             override fun onPageContextMenu(linkUrl: String?, imageUrl: String?, text: String?) {
-                PageContextMenu.show(
-                    this@BrowserActivity,
-                    PageHit(linkUrl, imageUrl, text),
-                    openInTab = { u ->
-                        tabManager.createTab(u)
-                        loadInActiveTab(u)
-                    },
-                    loadHere = { u -> loadInActiveTab(u) }
-                )
+                val page = tab.url
+                com.aegis.browser.extensions.ExtensionContext.remember(page, linkUrl, imageUrl, text)
+                ExtensionManager.listInstalled(this@BrowserActivity) { installed ->
+                    runOnUiThread {
+                        val addons = installed.filter { it.enabled }
+                        val extActs = addons.map { ext ->
+                            ExtensionMenuAction("Use ${ext.name}") {
+                                runExtensionOnContext(ext)
+                            }
+                        } + addons.map { ext ->
+                            ExtensionMenuAction("${ext.name} settings") {
+                                openExtensionUi(ext)
+                            }
+                        }
+                        val title = if (tab.engineType == BrowserEngine.Type.GECKO)
+                            "Firefox menu" else "Menu"
+                        PageContextMenu.show(
+                            this@BrowserActivity,
+                            PageHit(linkUrl, imageUrl, text),
+                            openInTab = { u ->
+                                tabManager.createTab(u)
+                                loadInActiveTab(u)
+                            },
+                            loadHere = { u -> loadInActiveTab(u) },
+                            extensionActions = extActs,
+                            title = title
+                        )
+                    }
+                }
             }
 
             override fun onSelectedText(text: String) { /* menu handles actions */ }
@@ -1133,6 +1153,39 @@ class BrowserActivity : AppCompatActivity() {
                     .show()
             }
             .show()
+    }
+
+    private fun runExtensionOnContext(ext: ExtensionManager.InstalledExtension) {
+        val target = com.aegis.browser.extensions.ExtensionContext.primaryUrl()
+        if (target.isNotBlank()) {
+            val cm = getSystemService(android.content.ClipboardManager::class.java)
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("Provonlong", target))
+        }
+        // Open the add-on popup/options so flows like "Save to Google Drive" can run.
+        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+        ExtensionManager.resolveOptionsPage(this, ext.id) { resolved ->
+            runOnUiThread {
+                val popup = resolved
+                    ?: ExtensionManager.optionsOrPopupUrl(ext)
+                    ?: ext.baseUrl
+                if (popup.isNullOrBlank()) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "Open ${ext.name} from Add-ons to finish this action",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    showExtensionsMenu()
+                    return@runOnUiThread
+                }
+                android.widget.Toast.makeText(
+                    this,
+                    if (target.isBlank()) "Opening ${ext.name}"
+                    else "Opening ${ext.name} with copied link",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                openUrlInGeckoTab(popup)
+            }
+        }
     }
 
     private fun openExtensionUi(ext: ExtensionManager.InstalledExtension) {

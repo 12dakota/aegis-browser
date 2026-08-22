@@ -16,9 +16,26 @@ data class PageHit(
     val text: String? = null
 )
 
+data class ExtensionMenuAction(
+    val label: String,
+    val run: () -> Unit
+)
+
 object PageContextMenu {
 
-    fun show(activity: Activity, hit: PageHit, openInTab: (String) -> Unit, loadHere: (String) -> Unit) {
+    /**
+     * Chrome / Gecko style long-press menu.
+     * When [extensionActions] is non-empty (Gecko + installed add-ons), those rows appear
+     * under "Extensions" so users can open popup/options (e.g. uBlock, Save to Drive).
+     */
+    fun show(
+        activity: Activity,
+        hit: PageHit,
+        openInTab: (String) -> Unit,
+        loadHere: (String) -> Unit,
+        extensionActions: List<ExtensionMenuAction> = emptyList(),
+        title: String = "Menu"
+    ) {
         val rows = mutableListOf<Pair<String, Int>>()
         val acts = mutableListOf<() -> Unit>()
 
@@ -27,7 +44,9 @@ object PageContextMenu {
             acts.add(act)
         }
 
-        val link = hit.linkUrl?.takeIf { it.startsWith("http") }
+        val link = hit.linkUrl?.takeIf {
+            it.startsWith("http") || it.startsWith("moz-extension") || it.startsWith("chrome-extension")
+        }
         val img = hit.imageUrl?.takeIf { it.startsWith("http") }
         val text = hit.text?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -53,14 +72,19 @@ object PageContextMenu {
             add("Share", R.drawable.ic_nav_share) { share(activity, text) }
         }
 
+        if (extensionActions.isNotEmpty()) {
+            extensionActions.forEach { ext ->
+                add(ext.label, R.drawable.ic_nav_extension, ext.run)
+            }
+        }
+
         if (rows.isEmpty()) {
-            add("Copy page link", R.drawable.ic_nav_info) { /* filled by caller text */ }
-            Toast.makeText(activity, "No link or text here", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "No actions for this spot", Toast.LENGTH_SHORT).show()
             return
         }
 
         val panel = ChromeUi.popupPanel(activity)
-        val dlg = AlertDialog.Builder(activity).setView(panel).create()
+        val dlg = AlertDialog.Builder(activity).setTitle(title).setView(panel).create()
         rows.forEachIndexed { i, (label, icon) ->
             panel.addView(ChromeUi.navRow(activity, label, null, icon) {
                 dlg.dismiss()

@@ -188,27 +188,6 @@ class ChromiumEngine(context: Context) : BrowserEngine {
                 }
             }
         }
-        webView.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu): Boolean {
-                menu.add(0, 11, 0, "Copy")
-                menu.add(0, 12, 1, "Search")
-                menu.add(0, 13, 2, "Share")
-                return true
-            }
-            override fun onPrepareActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = false
-            override fun onActionItemClicked(mode: android.view.ActionMode, item: android.view.MenuItem): Boolean {
-                webView.evaluateJavascript(
-                    "(function(){try{return window.getSelection().toString();}catch(e){return '';}})()"
-                ) { raw ->
-                    val text = raw?.trim()?.trim('"')?.replace("\\n", " ") ?: ""
-                    navigationListener?.onSelectedText(text)
-                    navigationListener?.onPageContextMenu(null, null, text)
-                }
-                mode.finish()
-                return true
-            }
-            override fun onDestroyActionMode(mode: android.view.ActionMode) {}
-        })
     }
 
     override fun getView(): View = webView

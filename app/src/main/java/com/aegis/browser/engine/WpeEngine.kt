@@ -3,11 +3,12 @@ package com.aegis.browser.engine
 import android.content.Context
 import android.util.Log
 import android.view.View
-import org.wpewebkit.wpeview.WPEChromeClient
 import org.wpewebkit.wpeview.WPEView
-import org.wpewebkit.wpeview.WPEViewClient
 
-/** Bundled WPE WebKit — WPEView API from wpeview 0.3.x AAR. */
+/**
+ * Bundled WPE WebKit (WPEView from wpeview 0.3.x).
+ * Clients are optional; core navigation works without custom clients.
+ */
 class WpeEngine(context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.WEBKIT
@@ -19,16 +20,6 @@ class WpeEngine(context: Context) : BrowserEngine {
 
     init {
         Log.i(TAG, "WPE WebKit engine created")
-        try {
-        } catch (e: Exception) {
-            Log.w(TAG, "WPE settings: ${e.message}")
-        }
-        try {
-            webView.setWPEViewClient(object : WPEViewClient() {})
-            webView.setWPEChromeClient(object : WPEChromeClient() {})
-        } catch (e: Exception) {
-            Log.w(TAG, "WPE clients: ${e.message}")
-        }
     }
 
     override fun getView(): View = webView
@@ -36,6 +27,7 @@ class WpeEngine(context: Context) : BrowserEngine {
         navigationListener?.onPageStarted(url)
         try {
             webView.loadUrl(url)
+            progressListener?.invoke(100)
         } catch (e: Exception) {
             navigationListener?.onReceivedError(url, e.message)
         }

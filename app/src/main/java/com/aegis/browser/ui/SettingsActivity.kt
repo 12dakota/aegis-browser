@@ -1,10 +1,8 @@
 package com.aegis.browser.ui
 
 import android.os.Bundle
-import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -15,71 +13,112 @@ import com.aegis.browser.downloads.UserSettings
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.extensions.ExtensionManager
 
+/** Chrome-style Settings: section headers + preference rows. */
 class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val scroll = ScrollView(this).apply {
-            setBackgroundColor(MaterialPalette.surface(this@SettingsActivity))
+        val surface = MaterialPalette.surface(this)
+
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(surface)
         }
+
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(ChromeUi.dp(this@SettingsActivity, 4), ChromeUi.dp(this@SettingsActivity, 8), ChromeUi.dp(this@SettingsActivity, 12), ChromeUi.dp(this@SettingsActivity, 8))
+            setBackgroundColor(surface)
+            elevation = 2f * resources.displayMetrics.density
+        }
+        val back = android.widget.ImageButton(this).apply {
+            setImageResource(R.drawable.ic_nav_back)
+            contentDescription = "Back"
+            background = null
+            androidx.core.widget.ImageViewCompat.setImageTintList(
+                this,
+                android.content.res.ColorStateList.valueOf(MaterialPalette.onSurface(this@SettingsActivity))
+            )
+            setOnClickListener { finish() }
+        }
+        val title = TextView(this).apply {
+            text = "Settings"
+            textSize = 20f
+            setTextColor(MaterialPalette.onSurface(this))
+            setPadding(ChromeUi.dp(this@SettingsActivity, 8), 0, 0, 0)
+        }
+        bar.addView(back)
+        bar.addView(title)
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(24), dp(20), dp(32))
         }
 
-        root.addView(header("Provonlong settings"))
-        root.addView(note("Unmanaged features — local to this device. MDM/cloud policy still wins when it locks a control."))
+        root.addView(ChromeUi.section(this, "Basics"))
+        root.addView(ChromeUi.switchRow(this, "Search suggestions", "Show suggestions from Google as you type", true) { })
+        root.addView(ChromeUi.switchRow(this, "Autocomplete searches and URLs", null, true) { })
 
-        root.addView(header("Downloads"))
-        root.addView(toggle("In-app downloads (not the system manager)", UserSettings.downloadsEnabled(this)) {
-            UserSettings.set(this, UserSettings.KEY_DOWNLOADS, it)
-        })
-        root.addView(toggle("Continue transfers in the background", UserSettings.backgroundDownloads(this)) {
-            UserSettings.set(this, UserSettings.KEY_BACKGROUND, it)
-        })
-
-        root.addView(header("Engines"))
-        root.addView(note("Current: ${enginePrefLabel()}"))
-        root.addView(action("Engine: Auto") { EngineSelector.setPreference(this, EngineSelector.Preference.AUTO); toast("Auto") })
-        root.addView(action("Engine: Chromium / Blink") { EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM); toast("Chromium") })
-        root.addView(action("Engine: Gecko") { EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO); toast("Gecko") })
-        root.addView(action("Engine: WebKit (WPE)") { EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT); toast("WebKit") })
-
-        root.addView(header("Extensions"))
-        root.addView(toggle("Allow any extension (unrestricted)", ExtensionManager.isAllowAny(this)) {
-            ExtensionManager.setAllowAny(this, it)
-        })
-
-        root.addView(header("Page behavior"))
-        root.addView(toggle("JavaScript", UserSettings.javascriptEnabled(this)) {
+        root.addView(ChromeUi.section(this, "Privacy and security"))
+        root.addView(ChromeUi.switchRow(this, "JavaScript", "Allow sites to run JavaScript", UserSettings.javascriptEnabled(this)) {
             UserSettings.set(this, UserSettings.KEY_JAVASCRIPT, it)
         })
-        root.addView(toggle("Cookies", UserSettings.cookiesEnabled(this)) {
+        root.addView(ChromeUi.switchRow(this, "Cookies", "Allow sites to save and read cookie data", UserSettings.cookiesEnabled(this)) {
             UserSettings.set(this, UserSettings.KEY_COOKIES, it)
         })
-        root.addView(toggle("Block pop-ups", UserSettings.blockPopups(this)) {
+        root.addView(ChromeUi.switchRow(this, "Pop-ups and redirects", "Block pop-ups", UserSettings.blockPopups(this)) {
             UserSettings.set(this, UserSettings.KEY_POPUPS, it)
         })
-        root.addView(toggle("Request desktop site", UserSettings.desktopUa(this)) {
-            UserSettings.set(this, UserSettings.KEY_DESKTOP_UA, it)
-        })
-        root.addView(toggle("Force SafeSearch (local)", UserSettings.forceSafeSearch(this)) {
+        root.addView(ChromeUi.switchRow(this, "SafeSearch", "Filter explicit results when searching", UserSettings.forceSafeSearch(this)) {
             UserSettings.set(this, UserSettings.KEY_SAFE_SEARCH, it)
         })
 
-        root.addView(header("About this build"))
-        val pol = try { AegisApplication.instance.policyManager.currentPolicy } catch (_: Exception) { null }
-        root.addView(note(
-            "Flavor: ${if (BuildConfig.ADULT_BUILD) "Adult" else "Family"}\n" +
-                "Login required: ${BuildConfig.REQUIRE_LOGIN}\n" +
-                "Policy lockdown: ${pol?.lockdownEnabled}\n" +
-                "Policy disable downloads: ${pol?.disableDownloads}\n" +
-                "Files save under app Downloads (not the system Download app)."
-        ))
+        root.addView(ChromeUi.section(this, "Downloads"))
+        root.addView(ChromeUi.switchRow(this, "Ask where to save files", "Use the in-app downloader, not the system manager", UserSettings.downloadsEnabled(this)) {
+            UserSettings.set(this, UserSettings.KEY_DOWNLOADS, it)
+        })
+        root.addView(ChromeUi.switchRow(this, "Download later / background", "Keep transferring when you leave the page", UserSettings.backgroundDownloads(this)) {
+            UserSettings.set(this, UserSettings.KEY_BACKGROUND, it)
+        })
 
-        scroll.addView(root)
-        setContentView(scroll)
-        title = getString(R.string.app_name)
+        root.addView(ChromeUi.section(this, "Site settings"))
+        root.addView(ChromeUi.switchRow(this, "Desktop site", "Request the desktop version of websites", UserSettings.desktopUa(this)) {
+            UserSettings.set(this, UserSettings.KEY_DESKTOP_UA, it)
+        })
+        root.addView(ChromeUi.switchRow(this, "Allow any extension", "Install from Chrome Web Store or addons.mozilla.org", ExtensionManager.isAllowAny(this)) {
+            ExtensionManager.setAllowAny(this, it)
+        })
+
+        root.addView(ChromeUi.section(this, "Accessibility / engine"))
+        root.addView(ChromeUi.navRow(this, "Engine", enginePrefLabel(), R.drawable.ic_nav_info) {
+            cycleEngine()
+        })
+        root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Blink, Gecko, or WebKit per site", null) {
+            EngineSelector.setPreference(this, EngineSelector.Preference.AUTO); toast("Auto")
+        })
+        root.addView(ChromeUi.navRow(this, "Use Chromium", "System WebView / Blink", null) {
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM); toast("Chromium")
+        })
+        root.addView(ChromeUi.navRow(this, "Use Gecko", "Firefox engine + extensions", null) {
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO); toast("Gecko")
+        })
+        root.addView(ChromeUi.navRow(this, "Use WebKit", "WPE WebKit", null) {
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT); toast("WebKit")
+        })
+
+        val pol = try { AegisApplication.instance.policyManager.currentPolicy } catch (_: Exception) { null }
+        root.addView(ChromeUi.section(this, "About Provonlong"))
+        root.addView(ChromeUi.navRow(
+            this,
+            if (BuildConfig.ADULT_BUILD) "Adult build" else "Family build",
+            "Login required: ${BuildConfig.REQUIRE_LOGIN} · Lockdown: ${pol?.lockdownEnabled}",
+            R.drawable.ic_nav_info
+        ) { })
+
+        val scroll = ScrollView(this).apply { addView(root) }
+        page.addView(bar)
+        page.addView(scroll)
+        setContentView(page)
     }
 
     private fun enginePrefLabel() = when (EngineSelector.preference) {
@@ -89,49 +128,16 @@ class SettingsActivity : AppCompatActivity() {
         EngineSelector.Preference.FORCE_WEBKIT -> "WebKit"
     }
 
-    private fun header(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 18f
-        setTextColor(MaterialPalette.onSurface(this@SettingsActivity))
-        setPadding(0, dp(20), 0, dp(8))
-    }
-
-    private fun note(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(MaterialPalette.outline(this@SettingsActivity))
-        setPadding(0, 0, 0, dp(8))
-    }
-
-    private fun toggle(label: String, checked: Boolean, on: (Boolean) -> Unit): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(6), 0, dp(6))
+    private fun cycleEngine() {
+        val next = when (EngineSelector.preference) {
+            EngineSelector.Preference.AUTO -> EngineSelector.Preference.FORCE_CHROMIUM
+            EngineSelector.Preference.FORCE_CHROMIUM -> EngineSelector.Preference.FORCE_GECKO
+            EngineSelector.Preference.FORCE_GECKO -> EngineSelector.Preference.FORCE_WEBKIT
+            EngineSelector.Preference.FORCE_WEBKIT -> EngineSelector.Preference.AUTO
         }
-        val tv = TextView(this).apply {
-            text = label
-            textSize = 15f
-            setTextColor(MaterialPalette.onSurface(this@SettingsActivity))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val sw = Switch(this).apply {
-            isChecked = checked
-            setOnCheckedChangeListener { _, v -> on(v) }
-        }
-        row.addView(tv)
-        row.addView(sw)
-        return row
-    }
-
-    private fun action(label: String, click: () -> Unit) = TextView(this).apply {
-        text = label
-        textSize = 15f
-        setTextColor(MaterialPalette.primary(this@SettingsActivity))
-        setPadding(0, dp(10), 0, dp(10))
-        setOnClickListener { click() }
+        EngineSelector.setPreference(this, next)
+        toast(enginePrefLabel())
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 }

@@ -799,50 +799,41 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun showChromeMenu() {
-        val items = arrayOf(
-            "New tab",
-            "Extensions",
-            "Settings",
-            "Switch engine",
-            "Close other tabs",
-            "Engine: Auto",
-            "Engine: Chromium",
-            "Engine: Gecko",
-            "Engine: WebKit",
-            "About Provonlong"
-        )
-        AlertDialog.Builder(this)
-            .setTitle("Menu")
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> {
-                        tabManager.createTab("https://www.google.com")
-                        loadInActiveTab("https://www.google.com")
-                    }
-                    1 -> showExtensionsMenu()
-                    2 -> startActivity(Intent(this, SettingsActivity::class.java))
-                    3 -> switchEngineOnActiveTab()
-                    4 -> tabManager.closeAllExceptActive()
-                    5 -> {
-                        EngineSelector.setPreference(this, EngineSelector.Preference.AUTO)
-                        Toast.makeText(this, "Engine: Auto", Toast.LENGTH_SHORT).show()
-                    }
-                    6 -> {
-                        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM)
-                        Toast.makeText(this, "Engine: Chromium only", Toast.LENGTH_SHORT).show()
-                    }
-                    7 -> {
-                        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
-                        Toast.makeText(this, "Engine: Gecko only", Toast.LENGTH_SHORT).show()
-                    }
-                    8 -> {
-                        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT)
-                        Toast.makeText(this, "Engine: WebKit/WPE only", Toast.LENGTH_SHORT).show()
-                    }
-                    9 -> showAbout()
-                }
-            }
-            .show()
+        val panel = ChromeUi.popupPanel(this)
+        fun add(title: String, icon: Int, click: () -> Unit) {
+            panel.addView(ChromeUi.navRow(this, title, null, icon) {
+                click()
+            })
+        }
+        val dlg = AlertDialog.Builder(this).setView(panel).create()
+        add("New tab", R.drawable.ic_nav_add) {
+            dlg.dismiss()
+            tabManager.createTab("https://www.google.com")
+            loadInActiveTab("https://www.google.com")
+        }
+        add("Extensions", R.drawable.ic_nav_info) {
+            dlg.dismiss()
+            showExtensionsMenu()
+        }
+        add("Downloads", R.drawable.ic_nav_info) {
+            dlg.dismiss()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        add("Desktop site", R.drawable.ic_nav_info) {
+            val next = !com.aegis.browser.downloads.UserSettings.desktopUa(this)
+            com.aegis.browser.downloads.UserSettings.set(this, com.aegis.browser.downloads.UserSettings.KEY_DESKTOP_UA, next)
+            Toast.makeText(this, if (next) "Desktop site on" else "Desktop site off", Toast.LENGTH_SHORT).show()
+            dlg.dismiss()
+        }
+        add("Settings", R.drawable.ic_nav_info) {
+            dlg.dismiss()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        add("Help & feedback", R.drawable.ic_nav_info) {
+            dlg.dismiss()
+            showAbout()
+        }
+        dlg.show()
     }
 
     private fun showExtensionsMenu() {

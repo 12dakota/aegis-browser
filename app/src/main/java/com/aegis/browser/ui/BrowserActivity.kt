@@ -84,10 +84,8 @@ class BrowserActivity : AppCompatActivity() {
             val msg = intent.getStringExtra(DownloadCoordinator.EXTRA_MESSAGE).orEmpty()
             val prog = intent.getIntExtra(DownloadCoordinator.EXTRA_PROGRESS, 0)
             val uri = intent.getStringExtra(DownloadCoordinator.EXTRA_URI)
-            if (state != DownloadCoordinator.STATE_TRANSFERRING || prog == 0 || prog >= 100) {
-                runOnUiThread {
-                    DownloadHud.show(this@BrowserActivity, host, name, state, prog, msg, uri)
-                }
+            runOnUiThread {
+                DownloadHud.show(this@BrowserActivity, host, name, state, prog, msg, uri)
             }
         }
     }

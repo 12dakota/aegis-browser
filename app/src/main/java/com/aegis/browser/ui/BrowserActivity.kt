@@ -31,11 +31,13 @@ import com.aegis.browser.BuildConfig
 import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
+import com.aegis.browser.ui.MaterialPalette
 import com.aegis.browser.engine.ChromiumEngine
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore
 import com.aegis.browser.extensions.ExtensionManager
+import com.aegis.browser.downloads.DownloadCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,6 +64,23 @@ class BrowserActivity : AppCompatActivity() {
 
     private val policyManager get() = AegisApplication.instance.policyManager
     private val pacManager get() = AegisApplication.instance.pacProxyManager
+
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != DownloadCoordinator.ACTION_PROGRESS) return
+            val state = intent.getStringExtra(DownloadCoordinator.EXTRA_STATE) ?: return
+            val name = intent.getStringExtra(DownloadCoordinator.EXTRA_NAME).orEmpty()
+            val host = intent.getStringExtra(DownloadCoordinator.EXTRA_HOST).orEmpty()
+            val msg = intent.getStringExtra(DownloadCoordinator.EXTRA_MESSAGE).orEmpty()
+            val prog = intent.getIntExtra(DownloadCoordinator.EXTRA_PROGRESS, 0)
+            // Show HUD on phase changes / finish (not every percent)
+            if (state != DownloadCoordinator.STATE_TRANSFERRING || prog == 0 || prog >= 100) {
+                runOnUiThread {
+                    DownloadHud.show(this@BrowserActivity, host, name, state, prog, msg)
+                }
+            }
+        }
+    }
 
     private val policyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -120,12 +139,12 @@ class BrowserActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#202124"))
+            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
         }
 
         tabScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
-            setBackgroundColor(Color.parseColor("#303134"))
+            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
         }
         tabStrip = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -133,7 +152,7 @@ class BrowserActivity : AppCompatActivity() {
         }
         val newTabBtn = TextView(this).apply {
             text = "＋"
-            setTextColor(Color.WHITE)
+            setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
             textSize = 18f
             setPadding(dp(14), dp(8), dp(14), dp(8))
             setOnClickListener {
@@ -149,7 +168,7 @@ class BrowserActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(6), dp(6), dp(6), dp(6))
-            setBackgroundColor(Color.parseColor("#202124"))
+            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
         }
 
         val backBtn = chromeIconButton("←") { tabManager.activeTab?.engine?.goBack() }
@@ -163,7 +182,7 @@ class BrowserActivity : AppCompatActivity() {
         val omniboxContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#303134"))
+            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
             setPadding(dp(10), dp(6), dp(10), dp(6))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
                 it.marginStart = dp(4)
@@ -179,8 +198,8 @@ class BrowserActivity : AppCompatActivity() {
 
         omnibox = EditText(this).apply {
             hint = "Search Google or type URL"
-            setHintTextColor(Color.parseColor("#9AA0A6"))
-            setTextColor(Color.WHITE)
+            setHintTextColor(MaterialPalette.outline(this@BrowserActivity))
+            setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
             setBackgroundColor(Color.TRANSPARENT)
             setSingleLine()
             imeOptions = EditorInfo.IME_ACTION_GO
@@ -199,7 +218,7 @@ class BrowserActivity : AppCompatActivity() {
 
         engineBadge = TextView(this).apply {
             text = "C"
-            setTextColor(Color.parseColor("#8AB4F8"))
+            setTextColor(MaterialPalette.primary(this@BrowserActivity))
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(6), 0, 0, 0)
@@ -212,11 +231,11 @@ class BrowserActivity : AppCompatActivity() {
 
         tabCountBtn = TextView(this).apply {
             text = "1"
-            setTextColor(Color.WHITE)
+            setTextColor(MaterialPalette.onPrimaryContainer(this@BrowserActivity))
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(10), dp(6), dp(10), dp(6))
-            setBackgroundColor(Color.parseColor("#3C4043"))
+            setBackgroundColor(MaterialPalette.primaryContainer(this@BrowserActivity))
             setOnClickListener { showTabSwitcher() }
         }
 
@@ -239,17 +258,17 @@ class BrowserActivity : AppCompatActivity() {
         }
 
         statusBar = TextView(this).apply {
-            setTextColor(Color.parseColor("#9AA0A6"))
+            setTextColor(MaterialPalette.outline(this@BrowserActivity))
             textSize = 10f
             setPadding(dp(10), dp(2), dp(10), dp(4))
-            setBackgroundColor(Color.parseColor("#202124"))
+            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
         }
 
         engineContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
             )
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
         }
 
         root.addView(tabScroll)
@@ -262,8 +281,8 @@ class BrowserActivity : AppCompatActivity() {
 
         // Keep chrome below status bar and above nav bar
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        window.statusBarColor = Color.parseColor("#202124")
-        window.navigationBarColor = Color.parseColor("#202124")
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
@@ -275,7 +294,7 @@ class BrowserActivity : AppCompatActivity() {
     private fun chromeIconButton(label: String, onClick: () -> Unit): TextView {
         return TextView(this).apply {
             text = label
-            setTextColor(Color.parseColor("#E8EAED"))
+            setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(24, 12, 24, 12)
@@ -296,12 +315,12 @@ class BrowserActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(10), dp(6), dp(4), dp(6))
                 setBackgroundColor(
-                    if (active) Color.parseColor("#202124") else Color.parseColor("#3C4043")
+                    if (active) MaterialPalette.primaryContainer(this@BrowserActivity) else MaterialPalette.surfaceContainer(this@BrowserActivity)
                 )
             }
             val title = TextView(this).apply {
                 text = tab.title.take(16).ifBlank { "New Tab" }
-                setTextColor(if (active) Color.WHITE else Color.parseColor("#9AA0A6"))
+                setTextColor(if (active) MaterialPalette.onPrimaryContainer(this@BrowserActivity) else MaterialPalette.outline(this@BrowserActivity))
                 textSize = 12f
                 setPadding(0, 0, dp(6), 0)
                 setOnClickListener {
@@ -311,7 +330,7 @@ class BrowserActivity : AppCompatActivity() {
             }
             val close = TextView(this).apply {
                 text = "×"
-                setTextColor(Color.parseColor("#E8EAED"))
+                setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
                 textSize = 16f
                 setPadding(dp(8), dp(2), dp(8), dp(2))
                 setOnClickListener {
@@ -404,6 +423,10 @@ class BrowserActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(url: String): Boolean {
                 if (handlePossibleExtensionInstall(url)) return true
+                if (DownloadCoordinator.looksLikeFile(url) && DownloadCoordinator.allowed(this@BrowserActivity)) {
+                    DownloadCoordinator.start(this@BrowserActivity, url)
+                    return true
+                }
                 return !isNavigationAllowed(url)
             }
         })
@@ -429,6 +452,10 @@ class BrowserActivity : AppCompatActivity() {
         }
 
         if (handlePossibleExtensionInstall(url)) return
+        if (DownloadCoordinator.looksLikeFile(url) && DownloadCoordinator.allowed(this)) {
+            DownloadCoordinator.start(this, url)
+            return
+        }
         if (!isNavigationAllowed(url)) return
 
         var tab = tabManager.activeTab
@@ -593,6 +620,7 @@ class BrowserActivity : AppCompatActivity() {
         val items = arrayOf(
             "New tab",
             "Extensions…",
+            "Settings…",
             "Switch engine (C → G → W)",
             "Close other tabs",
             "Engine preference: Auto",
@@ -610,25 +638,26 @@ class BrowserActivity : AppCompatActivity() {
                         loadInActiveTab("https://www.google.com")
                     }
                     1 -> showExtensionsMenu()
-                    2 -> switchEngineOnActiveTab()
-                    3 -> tabManager.closeAllExceptActive()
-                    4 -> {
+                    2 -> startActivity(Intent(this, SettingsActivity::class.java))
+                    3 -> switchEngineOnActiveTab()
+                    4 -> tabManager.closeAllExceptActive()
+                    5 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.AUTO)
                         Toast.makeText(this, "Engine: Auto", Toast.LENGTH_SHORT).show()
                     }
-                    5 -> {
+                    6 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM)
                         Toast.makeText(this, "Engine: Chromium only", Toast.LENGTH_SHORT).show()
                     }
-                    6 -> {
+                    7 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
                         Toast.makeText(this, "Engine: Gecko only", Toast.LENGTH_SHORT).show()
                     }
-                    7 -> {
+                    8 -> {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT)
                         Toast.makeText(this, "Engine: WebKit/WPE only", Toast.LENGTH_SHORT).show()
                     }
-                    8 -> showAbout()
+                    9 -> showAbout()
                 }
             }
             .show()
@@ -946,6 +975,10 @@ class BrowserActivity : AppCompatActivity() {
     override fun onDestroy() {
         try {
             unregisterReceiver(policyReceiver)
+        } catch (_: Exception) {
+        }
+        try {
+            unregisterReceiver(downloadReceiver)
         } catch (_: Exception) {
         }
         tabManager.allTabs.forEach {

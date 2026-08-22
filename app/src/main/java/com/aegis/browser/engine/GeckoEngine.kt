@@ -6,6 +6,8 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.WebResponse
+import com.aegis.browser.downloads.DownloadCoordinator
 
 class GeckoEngine(context: Context) : BrowserEngine {
 
@@ -85,6 +87,14 @@ class GeckoEngine(context: Context) : BrowserEngine {
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 currentTitle = title
+            }
+
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                try {
+                    val uri = response.uri ?: return
+                    DownloadCoordinator.start(context.applicationContext, uri, null, null, null)
+                } catch (_: Exception) {
+                }
             }
         }
     }

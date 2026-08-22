@@ -40,20 +40,20 @@ class LoginActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 120, 48, 48)
-            setBackgroundColor(0xFF0D47A1.toInt())
+            setBackgroundColor(MaterialPalette.surface(this@LoginActivity))
         }
 
         val title = TextView(this).apply {
-            text = "Aegis Browser"
+            text = getString(com.aegis.browser.R.string.app_name)
             textSize = 28f
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(MaterialPalette.onSurface(this@LoginActivity))
             setPadding(0, 0, 0, 32)
         }
 
         val subtitle = TextView(this).apply {
             text = "Secure parental & enterprise browser\nLogin is required (Cloudflare)"
             textSize = 14f
-            setTextColor(0xFFBBDEFB.toInt())
+            setTextColor(MaterialPalette.outline(this@LoginActivity))
             setPadding(0, 0, 0, 48)
         }
 
@@ -102,7 +102,7 @@ class LoginActivity : AppCompatActivity() {
         val note = TextView(this).apply {
             text = "\nAuth is handled by Cloudflare Workers.\nNo secrets are stored in the APK."
             textSize = 12f
-            setTextColor(0xFF90CAF9.toInt())
+            setTextColor(MaterialPalette.outline(this@LoginActivity))
             setPadding(0, 48, 0, 0)
         }
 

@@ -11,11 +11,13 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.DownloadListener
 import android.webkit.WebViewClient
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.aegis.browser.AegisApplication
+import com.aegis.browser.downloads.DownloadCoordinator
 
 /**
  * Chromium / Blink engine.
@@ -117,6 +119,16 @@ class ChromiumEngine(context: Context) : BrowserEngine {
                 progressListener?.invoke(newProgress)
             }
         }
+        webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            DownloadCoordinator.start(
+                context.applicationContext,
+                url,
+                userAgent,
+                contentDisposition,
+                mimetype
+            )
+        })
+
     }
 
     override fun getView(): View = webView

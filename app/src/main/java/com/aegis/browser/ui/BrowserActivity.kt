@@ -832,25 +832,25 @@ class BrowserActivity : AppCompatActivity() {
             tabManager.createTab("https://www.google.com")
             loadInActiveTab("https://www.google.com")
         }
-        add("Extensions", R.drawable.ic_nav_info) {
+        add("Extensions", R.drawable.ic_nav_extension) {
             dlg.dismiss()
             showExtensionsMenu()
         }
-        add("Downloads", R.drawable.ic_nav_info) {
+        add("Downloads", R.drawable.ic_nav_download) {
             dlg.dismiss()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-        add("Desktop site", R.drawable.ic_nav_info) {
+        add("Desktop site", R.drawable.ic_nav_desktop) {
             val next = !com.aegis.browser.downloads.UserSettings.desktopUa(this)
             com.aegis.browser.downloads.UserSettings.set(this, com.aegis.browser.downloads.UserSettings.KEY_DESKTOP_UA, next)
             Toast.makeText(this, if (next) "Desktop site on" else "Desktop site off", Toast.LENGTH_SHORT).show()
             dlg.dismiss()
         }
-        add("Settings", R.drawable.ic_nav_info) {
+        add("Settings", R.drawable.ic_nav_settings) {
             dlg.dismiss()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-        add("Help & feedback", R.drawable.ic_nav_info) {
+        add("Help & feedback", R.drawable.ic_nav_help) {
             dlg.dismiss()
             showAbout()
         }
@@ -891,11 +891,28 @@ class BrowserActivity : AppCompatActivity() {
                 actions.add { loadInActiveTab("https://chromewebstore.google.com/") }
 
                 val title = if (allowAny) "Extensions (unrestricted)" else "Extensions (allowlist)"
+                val panel = ChromeUi.popupPanel(this)
+                val scroll = android.widget.ScrollView(this)
+                val col = android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                }
+                items.forEachIndexed { i, label ->
+                    val icon = when {
+                        label.startsWith("Open Mozilla") -> R.drawable.ic_nav_extension
+                        label.startsWith("Open Chrome") -> R.drawable.ic_nav_extension
+                        label.startsWith("＋") || label.startsWith("+") -> R.drawable.ic_nav_add
+                        label.startsWith("──") -> R.drawable.ic_nav_info
+                        else -> R.drawable.ic_nav_extension
+                    }
+                    col.addView(ChromeUi.navRow(this, label, null, icon) {
+                        if (i in actions.indices) actions[i].invoke()
+                    })
+                }
+                scroll.addView(col)
+                panel.addView(scroll)
                 AlertDialog.Builder(this)
                     .setTitle(title)
-                    .setItems(items.toTypedArray()) { _, which ->
-                        if (which in actions.indices) actions[which].invoke()
-                    }
+                    .setView(panel)
                     .setPositiveButton("Refresh") { _, _ -> showExtensionsMenu() }
                     .setNegativeButton("Close", null)
                     .show()

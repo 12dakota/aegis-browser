@@ -90,19 +90,19 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         root.addView(ChromeUi.section(this, "Accessibility / engine"))
-        root.addView(ChromeUi.navRow(this, "Engine", enginePrefLabel(), R.drawable.ic_nav_info) {
+        root.addView(ChromeUi.navRow(this, "Engine", enginePrefLabel(), R.drawable.ic_nav_engine) {
             cycleEngine()
         })
-        root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Blink, Gecko, or WebKit per site", null) {
+        root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Blink, Gecko, or WebKit per site", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.AUTO); toast("Auto")
         })
-        root.addView(ChromeUi.navRow(this, "Use Chromium", "System WebView / Blink", null) {
+        root.addView(ChromeUi.navRow(this, "Use Chromium", "System WebView / Blink", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM); toast("Chromium")
         })
-        root.addView(ChromeUi.navRow(this, "Use Gecko", "Firefox engine + extensions", null) {
+        root.addView(ChromeUi.navRow(this, "Use Gecko", "Firefox engine + extensions", R.drawable.ic_nav_extension) {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO); toast("Gecko")
         })
-        root.addView(ChromeUi.navRow(this, "Use WebKit", "WPE WebKit", null) {
+        root.addView(ChromeUi.navRow(this, "Use WebKit", "WPE WebKit", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT); toast("WebKit")
         })
 

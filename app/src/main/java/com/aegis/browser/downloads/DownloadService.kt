@@ -36,10 +36,10 @@ class DownloadService : Service() {
             return START_NOT_STICKY
         }
         val id = nextId.getAndIncrement()
-        val name = DownloadCoordinator.guessName(url, intent.getStringExtra(EXTRA_CD))
+        val name = DownloadCoordinator.guessName(url, intent?.getStringExtra(EXTRA_CD))
         val host = DownloadCoordinator.host(url)
-        val ua = intent.getStringExtra(EXTRA_UA)
-        val bg = intent.getBooleanExtra(EXTRA_BG, true)
+        val ua = intent?.getStringExtra(EXTRA_UA)
+        val bg = intent?.getBooleanExtra(EXTRA_BG, true) ?: true
 
         startForeground(NOTIF_BASE + id.toInt(), note(name, "Connecting to host", 0, indeterminate = true))
 

@@ -36,7 +36,7 @@ import com.aegis.browser.auth.SessionStore
 import com.aegis.browser.extensions.ExtensionManager
 
 /**
- * Chrome-like browser shell — entirely our UI and control code.
+ * Chrome-like browser shell - entirely our UI and control code.
  *
  * Familiar Chrome patterns (omnibox, tabs, toolbar, progress) implemented by us.
  * Engines, policy, PAC, auth, and lockdown remain Aegis-owned.
@@ -469,7 +469,7 @@ class BrowserActivity : AppCompatActivity() {
         if (!allowAny && entry == null) {
             Toast.makeText(
                 this,
-                "This extension is not on the parental allowlist. Parent can enable “Allow any extension”.",
+                "This extension is not on the parental allowlist. Parent can enable Allow any extension.",
                 Toast.LENGTH_LONG
             ).show()
             return true
@@ -478,17 +478,12 @@ class BrowserActivity : AppCompatActivity() {
         val title = entry?.name ?: "this extension"
         val desc = entry?.description ?: url
 
+        val modeLine = if (allowAny) "Unrestricted mode is ON." else "Allowlist mode."
+        val message = "Install " + title + "?\n\n" + desc + "\n\n" +
+            "Installs use the Gecko engine (Firefox-compatible). " + modeLine
         AlertDialog.Builder(this)
             .setTitle("Add to Aegis?")
-            .setMessage(
-                "Install $title?
-
-$desc
-
-" +
-                    "Installs use the Gecko engine (Firefox-compatible). " +
-                    if (allowAny) "Unrestricted mode is ON." else "Allowlist mode."
-            )
+            .setMessage(message)
             .setPositiveButton("Add") { _, _ ->
                 if (entry != null) ExtensionManager.setEnabled(this, entry.id, true)
                 EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
@@ -501,7 +496,7 @@ $desc
                     runOnUiThread {
                         Toast.makeText(
                             this,
-                            if (ok) "Installed: $msg — use Gecko tabs (badge G)"
+                            if (ok) "Installed: $msg - use Gecko tabs (badge G)"
                             else "Install failed: $msg",
                             Toast.LENGTH_LONG
                         ).show()
@@ -661,7 +656,7 @@ $desc
                     ExtensionManager.ensureGeckoExtensions(this)
                     // Prefer Gecko so extension can run
                     EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
-                    Toast.makeText(this, "${entry.name} enabled — use Gecko engine", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "${entry.name} enabled - use Gecko engine", Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this, "${entry.name} disabled", Toast.LENGTH_SHORT).show()
                 }
@@ -679,7 +674,7 @@ $desc
     private fun showAbout() {
         val msg = """
             Aegis Browser
-            Chrome-like shell — our own code.
+            Chrome-like shell - our own code.
 
             Engines: Chromium (WebView) + Gecko (GeckoView)
             Auth: Cloudflare Worker (required)

@@ -87,9 +87,13 @@ class PolicyManager(
             disableUploads = mdmPolicy.disableUploads,
             forceSafeSearch = mdmPolicy.forceSafeSearch || cloudPolicy.forceSafeSearch,
             disableIncognito = mdmPolicy.disableIncognito,
+            allowAnyExtension = cloudPolicy.allowAnyExtension,
             organizationId = orgId,
             enrollmentToken = mdmPolicy.enrollmentToken
         )
+        if (cloudPolicy.allowAnyExtension) {
+            ExtensionManager.setAllowAny(context, true)
+        }
 
         Log.i(TAG, "Policies refreshed. Lockdown=${currentPolicy.lockdownEnabled}")
         prefs.edit().putBoolean(KEY_LAST_LOCKDOWN, currentPolicy.lockdownEnabled).apply()

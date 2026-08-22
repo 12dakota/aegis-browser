@@ -153,25 +153,7 @@ object ExtensionManager {
             }
             Log.i(TAG, "PromptDelegate attached (allowAny=" + isAllowAny(ctx) + ")")
         } catch (e: Exception) {
-            Log.e(TAG, "PromptDelegate setup failed — trying 3-arg only", e)
-            try {
-                val controller = GeckoRuntimeHolder.get(ctx).webExtensionController
-                controller.promptDelegate = object : WebExtensionController.PromptDelegate {
-                    override fun onInstallPromptRequest(
-                        extension: WebExtension,
-                        permissions: Array<String>,
-                        origins: Array<String>
-                    ): GeckoResult<WebExtension.PermissionPromptResponse>? {
-                        val allow = isAllowAny(ctx) || isAllowlisted(extension.id) ||
-                            ALLOWLIST.any { it.amoId == extension.id }
-                        return GeckoResult.fromValue(
-                            WebExtension.PermissionPromptResponse(allow, allow, false)
-                        )
-                    }
-                }
-            } catch (e2: Exception) {
-                Log.e(TAG, "PromptDelegate fallback failed", e2)
-            }
+            Log.e(TAG, "PromptDelegate setup failed", e)
         }
     }
 

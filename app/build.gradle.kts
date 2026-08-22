@@ -31,7 +31,7 @@ android {
         create("family") {
             dimension = "audience"
             applicationId = "com.aegis.browser"
-            resValue("string", "app_name", "Aegis Browser")
+            resValue("string", "app_name", "Provonlong Web Browser")
             buildConfigField("boolean", "ADULT_BUILD", "false")
             buildConfigField("boolean", "REQUIRE_LOGIN", "true")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
@@ -40,7 +40,7 @@ android {
         create("adult") {
             dimension = "audience"
             applicationId = "com.aegis.browser.adult"
-            resValue("string", "app_name", "Aegis Open")
+            resValue("string", "app_name", "Provonlong Web Browser")
             buildConfigField("boolean", "ADULT_BUILD", "true")
             buildConfigField("boolean", "REQUIRE_LOGIN", "false")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "true")

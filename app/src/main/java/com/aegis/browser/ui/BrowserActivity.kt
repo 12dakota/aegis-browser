@@ -602,7 +602,7 @@ class BrowserActivity : AppCompatActivity() {
             "Status / About"
         )
         AlertDialog.Builder(this)
-            .setTitle("Aegis")
+            .setTitle("Provonlong")
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> {

@@ -1,4 +1,4 @@
-name: Build Adult (Aegis Open)
+name: Build Adult (Provonlong)
 
 on:
   push:
@@ -47,16 +47,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: adult-${{ github.run_number }}
-          name: Aegis Open (adult-debug) #${{ github.run_number }}
+          name: Provonlong Web Browser (adult-debug) #${{ github.run_number }}
           body: |
-            ## Aegis Open — adult dual-engine browser
+            ## Provonlong Web Browser — adult build
 
             **Asset:** `aegis-adult-debug.apk` (select this for the adult build)
 
+            - Launcher name: Provonlong Web Browser
             - Package id: `com.aegis.browser.adult`
             - No parental login
             - Extensions unrestricted by default
-            - Engines: Chromium WebView + GeckoView
+            - Engines: Chromium WebView + GeckoView + WPE WebKit
             - Commit: `${{ github.sha }}`
 
             Install alongside the Family APK if desired (different applicationId).

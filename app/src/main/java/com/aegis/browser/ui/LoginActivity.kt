@@ -59,9 +59,9 @@ class LoginActivity : AppCompatActivity() {
 
         val email = EditText(this).apply {
             hint = "Email"
-            setTextColor(0xFF000000.toInt())
-            setHintTextColor(0xFF666666.toInt())
-            setBackgroundColor(0xFFFFFFFF.toInt())
+            setTextColor(MaterialPalette.onSurface(this@LoginActivity))
+            setHintTextColor(MaterialPalette.outline(this@LoginActivity))
+            setBackgroundColor(MaterialPalette.surfaceContainer(this@LoginActivity))
             setPadding(24, 24, 24, 24)
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
         }
@@ -70,9 +70,9 @@ class LoginActivity : AppCompatActivity() {
             hint = "Password"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
                 android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setTextColor(0xFF000000.toInt())
-            setHintTextColor(0xFF666666.toInt())
-            setBackgroundColor(0xFFFFFFFF.toInt())
+            setTextColor(MaterialPalette.onSurface(this@LoginActivity))
+            setHintTextColor(MaterialPalette.outline(this@LoginActivity))
+            setBackgroundColor(MaterialPalette.surfaceContainer(this@LoginActivity))
             setPadding(24, 24, 24, 24)
         }
 

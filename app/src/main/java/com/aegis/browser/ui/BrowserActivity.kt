@@ -195,6 +195,7 @@ class BrowserActivity : AppCompatActivity() {
         }
         tabStrip.addView(newTabBtn)
         tabScroll.addView(tabStrip)
+        tabScroll.visibility = View.GONE // Chrome Android: tabs live in overview, not a strip
 
         // —— Top toolbar ——
         toolbar = LinearLayout(this).apply {
@@ -288,12 +289,9 @@ class BrowserActivity : AppCompatActivity() {
 
         val menuBtn = chromeIconButton(R.drawable.ic_nav_menu, "Menu") { showChromeMenu() }
 
-        toolbar.addView(backBtn)
-        toolbar.addView(forwardBtn)
-        toolbar.addView(reloadBtn)
+        // Chrome Android top chrome is the omnibox only; navigation is the bottom bar.
         toolbar.addView(omniboxContainer)
-        toolbar.addView(tabCountBtn)
-        toolbar.addView(menuBtn)
+        toolbar.addView(reloadBtn)
 
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -744,17 +742,59 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun showTabSwitcher() {
-        val titles = tabManager.allTabs.map {
-            "${it.title.take(30)} (${it.engineType.name.take(1)})"
-        }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Tabs (${tabManager.count})")
-            .setItems(titles) { _, which ->
-                val tab = tabManager.allTabs.getOrNull(which) ?: return@setItems
+        val list = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        val scroll = android.widget.ScrollView(this)
+        tabManager.allTabs.forEach { tab ->
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(14), dp(8), dp(14))
+                background = roundedBg(MaterialPalette.surfaceContainer(this@BrowserActivity), 16f)
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = dp(8) }
+            }
+            val host = try {
+                android.net.Uri.parse(tab.url).host?.removePrefix("www.") ?: "New tab"
+            } catch (_: Exception) { "New tab" }
+            val title = android.widget.TextView(this).apply {
+                text = (tab.title.ifBlank { host }) + "\n" + host
+                setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
+                textSize = 14f
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                setOnClickListener {
+                    tabManager.switchTo(tab.id)
+                    showActiveTab()
+                }
+            }
+            val close = chromeIconButton(R.drawable.ic_nav_close, "Close tab") {
+                if (!policyManager.currentPolicy.lockdownEnabled) {
+                    tabManager.closeTab(tab.id)
+                    showActiveTab()
+                }
+            }
+            row.addView(title)
+            row.addView(close)
+            // click row
+            row.setOnClickListener {
                 tabManager.switchTo(tab.id)
                 showActiveTab()
             }
-            .setNegativeButton("Close") { d, _ -> d.dismiss() }
+            list.addView(row)
+        }
+        scroll.addView(list)
+        AlertDialog.Builder(this)
+            .setTitle("Tabs")
+            .setView(scroll)
+            .setPositiveButton("New tab") { _, _ ->
+                tabManager.createTab("https://www.google.com")
+                loadInActiveTab("https://www.google.com")
+            }
+            .setNegativeButton("Done") { d, _ -> d.dismiss() }
             .show()
     }
 
@@ -772,7 +812,7 @@ class BrowserActivity : AppCompatActivity() {
             "About Provonlong"
         )
         AlertDialog.Builder(this)
-            .setTitle("Provonlong")
+            .setTitle("Menu")
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> {

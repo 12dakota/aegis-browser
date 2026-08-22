@@ -477,6 +477,31 @@ class BrowserActivity : AppCompatActivity() {
         updateStatusBar()
     }
 
+
+    private fun updateSecurityIcon(url: String?) {
+        if (!::securityIcon.isInitialized) return
+        val u = url.orEmpty()
+        val secure = u.startsWith("https://", ignoreCase = true)
+        val insecure = u.startsWith("http://", ignoreCase = true)
+        securityIcon.setImageResource(
+            when {
+                secure -> R.drawable.ic_nav_lock
+                insecure -> R.drawable.ic_nav_unlock
+                else -> R.drawable.ic_nav_info
+            }
+        )
+        securityIcon.contentDescription = when {
+            secure -> "Connection is secure"
+            insecure -> "Connection is not secure"
+            else -> "Site info"
+        }
+        val tint = android.content.res.ColorStateList.valueOf(
+            if (insecure) android.graphics.Color.parseColor("#C5221F")
+            else MaterialPalette.outline(this)
+        )
+        androidx.core.widget.ImageViewCompat.setImageTintList(securityIcon, tint)
+    }
+
     private fun showActiveTab() {
         engineContainer.removeAllViews()
         val tab = tabManager.activeTab ?: return
@@ -508,12 +533,7 @@ class BrowserActivity : AppCompatActivity() {
             )
             reloadBtn.contentDescription = if (tab.isLoading) "Stop" else "Reload"
         }
-        if (::securityIcon.isInitialized) {
-            val secure = tab.url.startsWith("https://")
-            securityIcon.setImageResource(
-                if (secure) R.drawable.ic_nav_lock else R.drawable.ic_nav_info
-            )
-        }
+        updateSecurityIcon(tab.url)
         refreshTabStrip()
         applyPolicyToChrome()
     }
@@ -538,6 +558,7 @@ class BrowserActivity : AppCompatActivity() {
                 tab.isLoading = true
                 if (tab.id == tabManager.activeTab?.id) {
                     omnibox.setText(url ?: "")
+                    updateSecurityIcon(url)
                     url?.let { pacManager.evaluateAndSetProxy(it) }
                 }
             }

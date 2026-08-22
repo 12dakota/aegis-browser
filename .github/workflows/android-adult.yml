@@ -25,15 +25,18 @@ jobs:
           yes | sdkmanager --licenses || true
       - run: chmod +x ./gradlew
       - name: Assemble adultDebug
+        id: build
         run: ./gradlew assembleAdultDebug --stacktrace --no-daemon
       - name: List APKs
         run: find app/build/outputs -name "*.apk" -ls
       - uses: actions/upload-artifact@v4
         if: success()
+        continue-on-error: true
         with:
           name: aegis-adult-debug
           path: app/build/outputs/apk/adult/debug/*.apk
-          retention-days: 7
+          retention-days: 3
+          if-no-files-found: warn
       - name: Release adult APK
         if: success() && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2

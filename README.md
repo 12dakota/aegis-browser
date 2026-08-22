@@ -86,3 +86,10 @@ The browser will immediately enter lockdown (UI reduced, navigation blocked, abo
 ## Legal
 
 A Terms of Service and Privacy Policy will be required before any public or Play Store release. They will be written and presented at first login.
+
+## Dual engines (Chromium + Gecko)
+
+- **Gecko** is bundled via GeckoView (AMO extensions).
+- **Chromium** uses System WebView by default; optional **bundled Content Shell**
+  via `scripts/chromium/` (see `docs/BUNDLED_CHROMIUM.md` and `docs/DUAL_ENGINE_EXTENSIONS.md`).
+- AUTO mode switches engines per URL without mixing renderers in one tab.

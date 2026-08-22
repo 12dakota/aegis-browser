@@ -75,6 +75,8 @@ class ChromiumEngine(context: Context) : BrowserEngine {
     private var navigationListener: BrowserEngine.NavigationListener? = null
 
     init {
+        val backend = ChromiumBackendSelector.active(context)
+        Log.i(TAG, "Chromium backend: ${backend.displayName} bundled=${backend.isBundled}")
         Log.i(TAG, "Chromium WebView provider: " + chromiumVersionSummary(context))
 
         webView.webViewClient = object : WebViewClient() {

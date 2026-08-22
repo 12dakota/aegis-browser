@@ -1,29 +1,56 @@
 package com.aegis.browser.engine
 
+import android.content.Context
+import com.aegis.browser.BuildConfig
+import java.io.File
+
 /**
- * Abstraction over the Blink/Chromium implementation.
+ * Abstraction over how the CHROMIUM/Blink engine is provided.
  *
- * Current production backend: [SystemWebViewChromiumBackend] (Google System WebView =
- * Chromium/Blink on device).
+ * Roadmap:
+ * 1. SystemWebViewChromiumBackend — current production (Google Chromium on device)
+ * 2. BundledContentShellBackend — private Content Shell libs in APK (scripts/chromium/)
+ * 3. Full Chrome embedder — required for true Chrome Web Store / MV3 extension host
  *
- * Future: a [BundledContentShellBackend] could load a self-built Chromium Content Shell
- * binary for pinned Blink + a path toward Chrome-style extensions. That requires building
- * Chromium from source — not available as a Google Maven AAR.
- *
- * Automatic mode ([EngineSelector]) chooses CHROMIUM vs GECKO per URL; this interface
- * only concerns how the CHROMIUM choice is implemented.
+ * Gecko WebExtensions already work via GeckoView. Chromium *extensions* need the
+ * chrome.extension APIs and process model from the Chrome layer, not Blink alone.
  */
 interface ChromiumBackend {
     val displayName: String
+    /** True only when a full Chrome-level embedder is present (not Content Shell alone). */
     val supportsChromeExtensions: Boolean
+    val isBundled: Boolean
 }
 
-/**
- * Google Chromium as delivered on Android (WebView / Trichrome).
- * Rendering and site compatibility match Chrome closely; Chrome Web Store extensions
- * are still not available inside WebView (platform limitation).
- */
 object SystemWebViewChromiumBackend : ChromiumBackend {
     override val displayName = "Google Chromium (System WebView / Blink)"
     override val supportsChromeExtensions = false
+    override val isBundled = false
+}
+
+/**
+ * Detects whether scripts/chromium/03-package-into-aegis.sh has placed natives/assets.
+ * Full Content Shell JNI bridge is Phase 2 after the first successful builder run.
+ */
+object BundledContentShellBackend : ChromiumBackend {
+    override val displayName = "Bundled Chromium Content Shell (Blink)"
+    override val supportsChromeExtensions = false // needs Chrome embedder layer
+    override val isBundled = true
+
+    fun isAvailable(context: Context): Boolean {
+        return try {
+            context.assets.open("chromium/BUNDLED_MARKER").use { true }
+        } catch (_: Exception) {
+            false
+        }
+    }
+}
+
+object ChromiumBackendSelector {
+    fun active(context: Context): ChromiumBackend {
+        if (BuildConfig.USE_BUNDLED_CHROMIUM && BundledContentShellBackend.isAvailable(context)) {
+            return BundledContentShellBackend
+        }
+        return SystemWebViewChromiumBackend
+    }
 }

@@ -1,0 +1,46 @@
+name: Build bundled Chromium (self-hosted)
+
+# Requires a self-hosted runner with 100GB+ disk and 16GB+ RAM labeled:
+#   self-hosted, linux, chromium-builder
+on:
+  workflow_dispatch:
+    inputs:
+      chromium_ref:
+        description: 'Chromium git ref/tag (optional, default tip of main)'
+        required: false
+        default: ''
+
+jobs:
+  build-content-shell:
+    runs-on: [self-hosted, linux, chromium-builder]
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Chromium
+        run: |
+          export CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
+          bash scripts/chromium/01-fetch-chromium.sh
+      - name: Build content_shell arm64
+        run: |
+          export CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
+          bash scripts/chromium/02-build-content-shell.sh
+      - name: Package into Aegis tree
+        run: |
+          export CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
+          bash scripts/chromium/03-package-into-aegis.sh
+      - name: Upload packaged natives
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: aegis-chromium-natives-arm64
+          path: |
+            app/src/main/jniLibs/arm64-v8a/**
+            app/src/main/assets/chromium/**
+          retention-days: 14
+      - name: Commit packaged engine (optional)
+        if: false  # enable when ready to land binaries on a branch
+        run: |
+          git config user.name "chromium-bot"
+          git config user.email "bot@aegis.local"
+          git add app/src/main/jniLibs app/src/main/assets/chromium
+          git commit -m "chore: package bundled Chromium natives" || true

@@ -18,6 +18,12 @@ android {
         buildConfigField("boolean", "ADULT_BUILD", "false")
         buildConfigField("boolean", "REQUIRE_LOGIN", "true")
         buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
+        // Set -Paegis.bundledChromium=true after packaging Content Shell natives
+        buildConfigField(
+            "boolean",
+            "USE_BUNDLED_CHROMIUM",
+            (project.findProperty("aegis.bundledChromium") == "true").toString()
+        )
     }
 
     flavorDimensions += "audience"
@@ -66,6 +72,20 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true
+    }
+
+    // Chromium pak/dat must stay uncompressed when bundled
+    androidResources {
+        noCompress += listOf("pak", "dat", "bin")
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += setOf("META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/LICENSE.txt")
+        }
     }
 }
 

@@ -27,29 +27,43 @@ jobs:
       - name: Assemble adultDebug
         id: build
         run: ./gradlew assembleAdultDebug --stacktrace --no-daemon
-      - name: List APKs
-        run: find app/build/outputs -name "*.apk" -ls
+      - name: Stage APK as aegis-adult-debug.apk
+        run: |
+          mkdir -p release-assets
+          SRC=$(find app/build/outputs/apk/adult -name "*.apk" | head -1)
+          echo "Source: $SRC"
+          cp "$SRC" release-assets/aegis-adult-debug.apk
+          ls -la release-assets/
       - uses: actions/upload-artifact@v4
         if: success()
         continue-on-error: true
         with:
           name: aegis-adult-debug
-          path: app/build/outputs/apk/adult/debug/*.apk
+          path: release-assets/aegis-adult-debug.apk
           retention-days: 3
           if-no-files-found: warn
-      - name: Release adult APK
+      - name: Publish adult-debug to GitHub Releases
         if: success() && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: adult-${{ github.run_number }}
-          name: Aegis Open (adult) debug #${{ github.run_number }}
+          name: Aegis Open (adult-debug) #${{ github.run_number }}
           body: |
-            **Adult / open dual-engine browser**
-            - No parental login required
+            ## Aegis Open — adult dual-engine browser
+
+            **Asset:** `aegis-adult-debug.apk` (select this for the adult build)
+
+            - Package id: `com.aegis.browser.adult`
+            - No parental login
             - Extensions unrestricted by default
-            - Chromium WebView + GeckoView side by side
-            Commit: ${{ github.sha }}
-          files: app/build/outputs/apk/adult/debug/*.apk
-          prerelease: true
+            - Engines: Chromium WebView + GeckoView
+            - Commit: `${{ github.sha }}`
+
+            Install alongside the Family APK if desired (different applicationId).
+          files: release-assets/aegis-adult-debug.apk
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

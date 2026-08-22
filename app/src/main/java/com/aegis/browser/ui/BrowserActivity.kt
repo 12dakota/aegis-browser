@@ -648,6 +648,20 @@ class BrowserActivity : AppCompatActivity() {
                 )
             }
 
+            override fun onPageContextMenu(linkUrl: String?, imageUrl: String?, text: String?) {
+                PageContextMenu.show(
+                    this@BrowserActivity,
+                    PageHit(linkUrl, imageUrl, text),
+                    openInTab = { u ->
+                        tabManager.createTab(u)
+                        loadInActiveTab(u)
+                    },
+                    loadHere = { u -> loadInActiveTab(u) }
+                )
+            }
+
+            override fun onSelectedText(text: String) { /* menu handles actions */ }
+
             override fun shouldOverrideUrlLoading(url: String): Boolean {
                 if (handlePossibleExtensionInstall(url)) return true
                 if (DownloadCoordinator.looksLikeFile(url) && DownloadCoordinator.allowed(this@BrowserActivity)) {

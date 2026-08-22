@@ -59,5 +59,7 @@ interface BrowserEngine {
         /** Return true to cancel the navigation (used for parental URL blocking) */
         fun shouldOverrideUrlLoading(url: String): Boolean
         fun onSslError(url: String, detail: String?, proceed: () -> Unit, cancel: () -> Unit) {}
+        fun onPageContextMenu(linkUrl: String?, imageUrl: String?, text: String?) {}
+        fun onSelectedText(text: String) {}
     }
 }

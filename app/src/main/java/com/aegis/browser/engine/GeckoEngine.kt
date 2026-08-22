@@ -96,6 +96,19 @@ class GeckoEngine(context: Context) : BrowserEngine {
                 } catch (_: Exception) {
                 }
             }
+
+            override fun onContextMenu(
+                session: GeckoSession,
+                screenX: Int,
+                screenY: Int,
+                element: GeckoSession.ContentDelegate.ContextElement
+            ) {
+                navigationListener?.onPageContextMenu(
+                    element.linkUri,
+                    element.srcUri,
+                    element.title ?: element.altText
+                )
+            }
         }
     }
 

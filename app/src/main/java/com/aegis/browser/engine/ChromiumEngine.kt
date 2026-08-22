@@ -152,6 +152,63 @@ class ChromiumEngine(context: Context) : BrowserEngine {
             )
         })
 
+        webView.isLongClickable = true
+        webView.setOnLongClickListener {
+            val ht = webView.hitTestResult
+            val extra = ht.extra
+            when (ht.type) {
+                android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE,
+                android.webkit.WebView.HitTestResult.PHONE_TYPE,
+                android.webkit.WebView.HitTestResult.EMAIL_TYPE,
+                android.webkit.WebView.HitTestResult.GEO_TYPE,
+                android.webkit.WebView.HitTestResult.ANCHOR_TYPE -> {
+                    navigationListener?.onPageContextMenu(extra, null, extra)
+                    true
+                }
+                android.webkit.WebView.HitTestResult.IMAGE_TYPE -> {
+                    navigationListener?.onPageContextMenu(null, extra, extra)
+                    true
+                }
+                android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                    navigationListener?.onPageContextMenu(extra, extra, extra)
+                    true
+                }
+                else -> {
+                    webView.evaluateJavascript(
+                        "(function(){try{return window.getSelection().toString();}catch(e){return '';}})()"
+                    ) { raw ->
+                        val text = raw?.trim()?.trim('"')?.replace("\\n", "\n")
+                        if (!text.isNullOrBlank() && text != "null") {
+                            navigationListener?.onPageContextMenu(null, null, text)
+                        } else if (!extra.isNullOrBlank()) {
+                            navigationListener?.onPageContextMenu(extra, extra, extra)
+                        }
+                    }
+                    true
+                }
+            }
+        }
+        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu): Boolean {
+                menu.add(0, 11, 0, "Copy")
+                menu.add(0, 12, 1, "Search")
+                menu.add(0, 13, 2, "Share")
+                return true
+            }
+            override fun onPrepareActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = false
+            override fun onActionItemClicked(mode: android.view.ActionMode, item: android.view.MenuItem): Boolean {
+                webView.evaluateJavascript(
+                    "(function(){try{return window.getSelection().toString();}catch(e){return '';}})()"
+                ) { raw ->
+                    val text = raw?.trim()?.trim('"')?.replace("\\n", " ") ?: ""
+                    navigationListener?.onSelectedText(text)
+                    navigationListener?.onPageContextMenu(null, null, text)
+                }
+                mode.finish()
+                return true
+            }
+            override fun onDestroyActionMode(mode: android.view.ActionMode) {}
+        }
     }
 
     override fun getView(): View = webView

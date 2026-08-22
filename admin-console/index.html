@@ -11,9 +11,10 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
-  header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:#0a101c; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:#0a101c; gap:12px; flex-wrap:wrap; }
   header h1 { margin:0; font-size:1.15rem; letter-spacing:.02em; }
   header h1 span { color:var(--accent); }
+  .badge { font-size:.7rem; padding:3px 8px; border-radius:999px; background:#1e3a5f; color:#93c5fd; border:1px solid #2563eb; }
   main { max-width:1100px; margin:0 auto; padding:20px 16px 48px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
   h2 { margin:0 0 12px; font-size:1.05rem; }
@@ -34,6 +35,15 @@
   .row { display:flex; gap:12px; flex-wrap:wrap; }
   .row > * { flex:1; min-width:160px; }
   .muted { color:var(--muted); font-size:.85rem; }
+  .hint {
+    margin-top:10px; padding:10px 12px; border-radius:10px; background:#0f172a;
+    border:1px solid var(--border); font-size:.82rem; color:var(--muted); line-height:1.45;
+  }
+  .hint strong { color:#cbd5e1; }
+  .warn-box {
+    margin-top:10px; padding:10px 12px; border-radius:10px; background:#422006;
+    border:1px solid #b45309; font-size:.82rem; color:#fde68a; line-height:1.45;
+  }
   .tag {
     display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
     background:#243047; border:1px solid var(--border); font-size:.8rem; margin:3px;
@@ -58,18 +68,22 @@
   #loginView.show, #appView.show { display:block; }
   .split { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
   @media (max-width:800px) { .split { grid-template-columns: 1fr; } }
+  .dim { opacity:.45; pointer-events:none; }
 </style>
 </head>
 <body>
 <header>
   <h1><span>Aegis</span> Parent Console</h1>
-  <div class="muted" id="whoami"></div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="badge">v2 · extensions + unrestricted mode</span>
+    <span class="muted" id="whoami"></span>
+  </div>
 </header>
 <main>
   <div id="loginView">
     <div class="card" style="max-width:420px;margin:40px auto;">
       <h2>Parent sign in</h2>
-      <p class="muted">Use your parent Firebase account. Then create child logins and set their rules.</p>
+      <p class="muted">Sign in with your parent account. Create child logins, set domain rules, lockdown, and extension policy.</p>
       <label>Email</label>
       <input id="loginEmail" type="email" autocomplete="username" placeholder="parent@example.com"/>
       <label>Password</label>
@@ -99,6 +113,14 @@
           <button onclick="createChild()">Create child account</button>
           <button class="secondary" onclick="logout()">Sign out</button>
         </div>
+        <div class="card">
+          <h2>How installs work</h2>
+          <div class="hint">
+            Child must use a <strong>Gecko</strong> tab in Aegis (engine badge <strong>G</strong>).<br/>
+            On addons.mozilla.org, <strong>Add to Firefox</strong> opens an <strong>Add to Aegis?</strong> prompt when the app receives the XPI download.<br/>
+            Chromium tabs cannot install AMO extensions.
+          </div>
+        </div>
       </div>
 
       <div>
@@ -114,13 +136,19 @@
               <label>Force SafeSearch</label>
               <select id="safe"><option value="true">Yes</option><option value="false">No</option></select>
             </div>
-            <div>
-              <label>Allow any extension</label>
-              <select id="allowAnyExt"><option value="false">No (allowlist only)</option><option value="true">Yes (child can install any)</option></select>
-            </div>
           </div>
+
+          <label>Extension install mode</label>
+          <select id="allowAnyExt" onchange="onAllowAnyChange()">
+            <option value="false">Allowlist only — only listed extensions</option>
+            <option value="true">Unrestricted — child may install any AMO extension</option>
+          </select>
+          <div id="allowAnyHint" class="hint">
+            <strong>Allowlist only:</strong> child can only install extensions you list below (e.g. uBlock Origin).
+          </div>
+
           <label>Allowed domains (comma-separated; empty = allow all except blocks)</label>
-          <textarea id="allowed" placeholder="google.com, wikipedia.org, khanacademy.org"></textarea>
+          <textarea id="allowed" placeholder="google.com, wikipedia.org, khanacademy.org, addons.mozilla.org"></textarea>
           <label>Blocked domains</label>
           <textarea id="blocked" placeholder="example-bad.com"></textarea>
           <div class="row">
@@ -142,12 +170,12 @@
 
         <div class="card" id="extCard" style="opacity:.5;pointer-events:none">
           <h2>Extension allowlist</h2>
-          <p class="muted">Add by <strong>name</strong> or <strong>id</strong> only (e.g. <code>uBlock Origin</code> or <code>ublock-origin</code>). No JSON required.</p>
+          <p class="muted" id="extModeNote">Used when mode is <strong>Allowlist only</strong>. Add by name or id (no JSON).</p>
           <div id="extList"></div>
           <label>Name or ID</label>
           <input id="extQuery" placeholder="ublock-origin or Privacy Badger"/>
           <button class="ok" onclick="addExt()">Add extension</button>
-          <button class="secondary" onclick="loadCatalog()">Show catalog tips</button>
+          <button class="secondary" onclick="loadCatalog()">Show known catalog</button>
           <pre id="catalog" class="muted" style="white-space:pre-wrap;font-size:.75rem"></pre>
         </div>
       </div>
@@ -174,10 +202,7 @@ function toast(msg, ok=true) {
 }
 
 function authHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + sessionToken,
-  };
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sessionToken };
 }
 
 async function api(path, opts={}) {
@@ -185,6 +210,22 @@ async function api(path, opts={}) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
   return j;
+}
+
+function onAllowAnyChange() {
+  const any = document.getElementById('allowAnyExt').value === 'true';
+  const hint = document.getElementById('allowAnyHint');
+  const note = document.getElementById('extModeNote');
+  const listSection = document.getElementById('extList')?.parentElement;
+  if (any) {
+    hint.className = 'warn-box';
+    hint.innerHTML = '<strong>Unrestricted:</strong> the child can install any Mozilla-signed extension from AMO via <em>Add to Firefox</em> in a Gecko tab. The allowlist below is optional.';
+    note.innerHTML = 'Allowlist is optional while unrestricted mode is on.';
+  } else {
+    hint.className = 'hint';
+    hint.innerHTML = '<strong>Allowlist only:</strong> child can only install extensions you list below (e.g. uBlock Origin).';
+    note.innerHTML = 'Used when mode is <strong>Allowlist only</strong>. Add by name or id (no JSON).';
+  }
 }
 
 async function doLogin() {
@@ -201,9 +242,7 @@ async function doLogin() {
     parentUser = j;
     toast('Signed in', true);
     await enterApp();
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 async function doRegister() {
@@ -220,9 +259,7 @@ async function doRegister() {
     parentUser = j;
     toast('Parent account created', true);
     await enterApp();
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 function logout() {
@@ -277,9 +314,7 @@ async function createChild() {
     selectedChildId = j.child.userId;
     localStorage.setItem('aegis_selected_child', selectedChildId);
     await refreshChildren();
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 function disableControls(off) {
@@ -297,7 +332,6 @@ async function selectChild(id) {
   document.getElementById('selName').textContent = (c && (c.displayName || c.email)) || id;
   document.getElementById('selMeta').textContent = c ? ('userId: ' + c.userId + ' · ' + c.email) : '';
   disableControls(false);
-  // re-render chips active state
   document.querySelectorAll('.child-chip').forEach(n => {
     n.classList.toggle('active', n.getAttribute('onclick')?.includes(id));
   });
@@ -316,6 +350,7 @@ async function loadChildPolicy() {
   document.getElementById('tStart').value = policy.timeStart || '';
   document.getElementById('tEnd').value = policy.timeEnd || '';
   document.getElementById('pacUrl').value = policy.pacUrl || '';
+  onAllowAnyChange();
 }
 
 async function loadChildExt() {
@@ -327,7 +362,7 @@ async function loadChildExt() {
 function renderExt() {
   const el = document.getElementById('extList');
   if (!allowlist.length) {
-    el.innerHTML = '<p class="muted">No extensions allowlisted.</p>';
+    el.innerHTML = '<p class="muted">No extensions on allowlist yet.</p>';
     return;
   }
   el.innerHTML = allowlist.map(e => `
@@ -356,10 +391,14 @@ async function savePolicy() {
       body: JSON.stringify({ childId: selectedChildId, policy: next }),
     });
     policy = j.policy;
-    toast('Policy saved for this child', true);
-  } catch (e) {
-    toast(e.message, false);
-  }
+    onAllowAnyChange();
+    toast(
+      next.allowAnyExtension
+        ? 'Policy saved — unrestricted extensions ON for this child'
+        : 'Policy saved — allowlist-only extensions',
+      true
+    );
+  } catch (e) { toast(e.message, false); }
 }
 
 async function setLockdown(on) {
@@ -371,9 +410,7 @@ async function setLockdown(on) {
     });
     document.getElementById('lockdown').value = String(on);
     toast(on ? 'Lockdown ON' : 'Lockdown OFF', true);
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 async function addExt() {
@@ -389,9 +426,7 @@ async function addExt() {
     renderExt();
     document.getElementById('extQuery').value = '';
     toast(j.added ? ('Added ' + (j.added.name || j.added.id)) : (j.message || 'Updated'), true);
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 async function removeExt(id) {
@@ -404,9 +439,7 @@ async function removeExt(id) {
     allowlist = j.allowlist || [];
     renderExt();
     toast('Removed', true);
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
 async function loadCatalog() {
@@ -414,14 +447,10 @@ async function loadCatalog() {
     const j = await api('/extensions/catalog');
     document.getElementById('catalog').textContent =
       (j.catalog || []).map(e => e.id + ' — ' + e.name).join('\n') || 'Empty';
-  } catch (e) {
-    toast(e.message, false);
-  }
+  } catch (e) { toast(e.message, false); }
 }
 
-function splitCsv(s) {
-  return s.split(',').map(x => x.trim()).filter(Boolean);
-}
+function splitCsv(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }

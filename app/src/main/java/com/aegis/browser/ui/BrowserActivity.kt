@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.GradientDrawable
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -139,28 +142,55 @@ class BrowserActivity : AppCompatActivity() {
         )
     }
 
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun roundedBg(fill: Int, cornerDp: Float, stroke: Int? = null, strokeW: Int = 0): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = cornerDp * resources.displayMetrics.density
+            setColor(fill)
+            if (stroke != null && strokeW > 0) {
+                setStroke(strokeW, stroke)
+            }
+        }
+    }
+
     private fun buildChromeLikeUi() {
-        val density = resources.displayMetrics.density
-        fun dp(v: Int) = (v * density).toInt()
+        val surface = MaterialPalette.surface(this)
+        val onSurface = MaterialPalette.onSurface(this)
+        val container = MaterialPalette.surfaceContainer(this)
+        val outline = MaterialPalette.outline(this)
+        val primary = MaterialPalette.primary(this)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
+            setBackgroundColor(surface)
         }
 
+        // —— Chrome-style tab strip (desktop-like) ——
         tabScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
-            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
+            setBackgroundColor(container)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
         tabStrip = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(4), dp(4), dp(4), 0)
+            gravity = Gravity.BOTTOM
+            setPadding(dp(6), dp(6), dp(6), 0)
+            minimumHeight = dp(40)
         }
         val newTabBtn = TextView(this).apply {
-            text = "＋"
-            setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
-            textSize = 18f
-            setPadding(dp(14), dp(8), dp(14), dp(8))
+            text = "+"
+            setTextColor(onSurface)
+            textSize = 20f
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            background = roundedBg(container, 12f, outline, dp(1))
+            setPadding(dp(14), dp(6), dp(14), dp(6))
             setOnClickListener {
                 if (policyManager.currentPolicy.lockdownEnabled) return@setOnClickListener
                 tabManager.createTab("https://www.google.com")
@@ -170,11 +200,13 @@ class BrowserActivity : AppCompatActivity() {
         tabStrip.addView(newTabBtn)
         tabScroll.addView(tabStrip)
 
+        // —— Toolbar: back / forward / reload | pill omnibox | tabs | menu ——
         toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(6), dp(6), dp(6), dp(6))
-            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setBackgroundColor(surface)
+            elevation = 2f * resources.displayMetrics.density
         }
 
         val backBtn = chromeIconButton("←") { tabManager.activeTab?.engine?.goBack() }
@@ -188,29 +220,30 @@ class BrowserActivity : AppCompatActivity() {
         val omniboxContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = roundedBg(container, 24f)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
                 it.marginStart = dp(4)
                 it.marginEnd = dp(4)
             }
+            minimumHeight = dp(40)
         }
 
         securityIcon = TextView(this).apply {
             text = "🔒"
-            textSize = 12f
-            setPadding(0, 0, dp(6), 0)
+            textSize = 13f
+            setPadding(0, 0, dp(8), 0)
         }
 
         omnibox = EditText(this).apply {
             hint = "Search Google or type URL"
-            setHintTextColor(MaterialPalette.outline(this@BrowserActivity))
-            setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
+            setHintTextColor(outline)
+            setTextColor(onSurface)
             setBackgroundColor(Color.TRANSPARENT)
             setSingleLine()
             imeOptions = EditorInfo.IME_ACTION_GO
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
-            textSize = 14f
+            textSize = 15f
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             setOnEditorActionListener { _, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_GO ||
@@ -224,10 +257,10 @@ class BrowserActivity : AppCompatActivity() {
 
         engineBadge = TextView(this).apply {
             text = "C"
-            setTextColor(MaterialPalette.primary(this@BrowserActivity))
+            setTextColor(primary)
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(6), 0, 0, 0)
+            setPadding(dp(8), 0, 0, 0)
             setOnClickListener { switchEngineOnActiveTab() }
         }
 
@@ -235,13 +268,17 @@ class BrowserActivity : AppCompatActivity() {
         omniboxContainer.addView(omnibox)
         omniboxContainer.addView(engineBadge)
 
+        // Chrome-style square tab counter
         tabCountBtn = TextView(this).apply {
             text = "1"
-            setTextColor(MaterialPalette.onPrimaryContainer(this@BrowserActivity))
+            setTextColor(onSurface)
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            background = roundedBg(Color.TRANSPARENT, 6f, onSurface, dp(2))
             setPadding(dp(10), dp(6), dp(10), dp(6))
-            setBackgroundColor(MaterialPalette.primaryContainer(this@BrowserActivity))
+            minWidth = dp(32)
+            minHeight = dp(32)
             setOnClickListener { showTabSwitcher() }
         }
 
@@ -254,41 +291,75 @@ class BrowserActivity : AppCompatActivity() {
         toolbar.addView(tabCountBtn)
         toolbar.addView(menuBtn)
 
+        // Thin Chrome-blue progress under toolbar
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progress = 0
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(2)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(3)
             )
+            progressTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1A73E8"))
         }
 
+        // Minimal status line (policy / engine) — low visual weight
         statusBar = TextView(this).apply {
-            setTextColor(MaterialPalette.outline(this@BrowserActivity))
-            textSize = 10f
-            setPadding(dp(10), dp(2), dp(10), dp(4))
-            setBackgroundColor(MaterialPalette.surfaceContainer(this@BrowserActivity))
+            setTextColor(outline)
+            textSize = 11f
+            setPadding(dp(12), dp(4), dp(12), dp(4))
+            setBackgroundColor(surface)
+            visibility = View.GONE
         }
 
         engineContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
             )
-            setBackgroundColor(MaterialPalette.surface(this@BrowserActivity))
+            setBackgroundColor(Color.WHITE)
         }
+
+        // Bottom Chrome-style action row (mobile)
+        val bottomBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(6), dp(4), dp(6))
+            setBackgroundColor(surface)
+            elevation = 6f * resources.displayMetrics.density
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        fun bottomItem(label: String, click: () -> Unit): TextView {
+            return TextView(this).apply {
+                text = label
+                setTextColor(onSurface)
+                textSize = 20f
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
+                setOnClickListener { click() }
+            }
+        }
+        bottomBar.addView(bottomItem("←") { tabManager.activeTab?.engine?.goBack() })
+        bottomBar.addView(bottomItem("→") { tabManager.activeTab?.engine?.goForward() })
+        bottomBar.addView(bottomItem("⌂") {
+            loadInActiveTab("https://www.google.com")
+        })
+        bottomBar.addView(bottomItem("▥") { showTabSwitcher() })
+        bottomBar.addView(bottomItem("⋮") { showChromeMenu() })
 
         root.addView(tabScroll)
         root.addView(toolbar)
         root.addView(progressBar)
         root.addView(statusBar)
         root.addView(engineContainer)
+        root.addView(bottomBar)
         root.fitsSystemWindows = true
         setContentView(root)
 
-        // Keep chrome below status bar and above nav bar
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
+        window.statusBarColor = surface
+        window.navigationBarColor = surface
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
@@ -303,14 +374,19 @@ class BrowserActivity : AppCompatActivity() {
             setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
             textSize = 18f
             gravity = Gravity.CENTER
-            setPadding(24, 12, 24, 12)
+            minWidth = dp(40)
+            minHeight = dp(40)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
             setOnClickListener { onClick() }
         }
     }
 
     private fun refreshTabStrip() {
-        val density = resources.displayMetrics.density
-        fun dp(v: Int) = (v * density).toInt()
+        val surface = MaterialPalette.surface(this)
+        val container = MaterialPalette.surfaceContainer(this)
+        val onSurface = MaterialPalette.onSurface(this)
+        val outline = MaterialPalette.outline(this)
+
         while (tabStrip.childCount > 1) {
             tabStrip.removeViewAt(0)
         }
@@ -319,15 +395,37 @@ class BrowserActivity : AppCompatActivity() {
             val chip = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(10), dp(6), dp(4), dp(6))
-                setBackgroundColor(
-                    if (active) MaterialPalette.primaryContainer(this@BrowserActivity) else MaterialPalette.surfaceContainer(this@BrowserActivity)
-                )
+                setPadding(dp(12), dp(8), dp(4), dp(8))
+                // Active tab = raised “surface”; inactive = recessed container
+                background = if (active) {
+                    roundedBg(surface, 12f)
+                } else {
+                    roundedBg(container, 12f)
+                }
+                elevation = if (active) 2f * resources.displayMetrics.density else 0f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = dp(4) }
+            }
+            // Favicon placeholder (Chrome-like circle)
+            val fav = TextView(this).apply {
+                text = "●"
+                textSize = 10f
+                setTextColor(if (active) Color.parseColor("#1A73E8") else outline)
+                setPadding(0, 0, dp(6), 0)
             }
             val title = TextView(this).apply {
-                text = tab.title.take(16).ifBlank { "New Tab" }
-                setTextColor(if (active) MaterialPalette.onPrimaryContainer(this@BrowserActivity) else MaterialPalette.outline(this@BrowserActivity))
-                textSize = 12f
+                text = tab.title.take(18).ifBlank {
+                    try {
+                        android.net.Uri.parse(tab.url).host?.removePrefix("www.") ?: "New Tab"
+                    } catch (_: Exception) {
+                        "New Tab"
+                    }
+                }
+                setTextColor(if (active) onSurface else outline)
+                textSize = 13f
+                maxLines = 1
                 setPadding(0, 0, dp(6), 0)
                 setOnClickListener {
                     tabManager.switchTo(tab.id)
@@ -336,8 +434,9 @@ class BrowserActivity : AppCompatActivity() {
             }
             val close = TextView(this).apply {
                 text = "×"
-                setTextColor(MaterialPalette.onSurface(this@BrowserActivity))
+                setTextColor(outline)
                 textSize = 16f
+                gravity = Gravity.CENTER
                 setPadding(dp(8), dp(2), dp(8), dp(2))
                 setOnClickListener {
                     if (!policyManager.currentPolicy.lockdownEnabled) {
@@ -346,18 +445,16 @@ class BrowserActivity : AppCompatActivity() {
                     }
                 }
             }
+            chip.addView(fav)
             chip.addView(title)
             chip.addView(close)
-            // Margin between chips
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.marginEnd = dp(4)
-            chip.layoutParams = lp
             tabStrip.addView(chip, tabStrip.childCount - 1)
         }
         tabCountBtn.text = tabManager.count.toString()
+        // Square outline style for tab count (Chrome)
+        tabCountBtn.background = roundedBg(
+            Color.TRANSPARENT, 6f, MaterialPalette.onSurface(this), dp(2)
+        )
         updateStatusBar()
     }
 
@@ -593,6 +690,7 @@ class BrowserActivity : AppCompatActivity() {
             append(" • ")
             append(owner.take(20))
         }
+        statusBar.visibility = if (statusBar.text.isNullOrBlank()) View.GONE else View.VISIBLE
         // Tap status bar → extensions menu
         statusBar.setOnClickListener { showExtensionsMenu() }
     }

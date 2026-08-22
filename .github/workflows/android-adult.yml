@@ -1,0 +1,52 @@
+name: Build Adult (Aegis Open)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-adult:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: SDK packages
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          yes | sdkmanager --licenses || true
+      - run: chmod +x ./gradlew
+      - name: Assemble adultDebug
+        run: ./gradlew assembleAdultDebug --stacktrace --no-daemon
+      - name: List APKs
+        run: find app/build/outputs -name "*.apk" -ls
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: aegis-adult-debug
+          path: app/build/outputs/apk/adult/debug/*.apk
+          retention-days: 7
+      - name: Release adult APK
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: adult-${{ github.run_number }}
+          name: Aegis Open (adult) debug #${{ github.run_number }}
+          body: |
+            **Adult / open dual-engine browser**
+            - No parental login required
+            - Extensions unrestricted by default
+            - Chromium WebView + GeckoView side by side
+            Commit: ${{ github.sha }}
+          files: app/build/outputs/apk/adult/debug/*.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

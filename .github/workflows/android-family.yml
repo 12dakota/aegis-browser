@@ -1,0 +1,52 @@
+name: Build Family (Aegis)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-family:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: SDK packages
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          yes | sdkmanager --licenses || true
+      - run: chmod +x ./gradlew
+      - name: Assemble familyDebug
+        run: ./gradlew assembleFamilyDebug --stacktrace --no-daemon
+      - name: List APKs
+        run: find app/build/outputs -name "*.apk" -ls
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: aegis-family-debug
+          path: app/build/outputs/apk/family/debug/*.apk
+          retention-days: 7
+      - name: Release family APK
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: family-${{ github.run_number }}
+          name: Aegis Family debug #${{ github.run_number }}
+          body: |
+            **Family / parental build**
+            - Mandatory login + cloud policy
+            - Dual engine (WebView + GeckoView)
+            - Extension allowlist / unrestricted via parent console
+            Commit: ${{ github.sha }}
+          files: app/build/outputs/apk/family/debug/*.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

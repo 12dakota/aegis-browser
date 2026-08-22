@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.aegis.browser.engine.GeckoRuntimeHolder
+import com.aegis.browser.BuildConfig
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.WebExtension
@@ -75,7 +76,7 @@ object ExtensionManager {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun isAllowAny(ctx: Context): Boolean =
-        prefs(ctx).getBoolean(KEY_ALLOW_ANY, false)
+        prefs(ctx).getBoolean(KEY_ALLOW_ANY, BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION)
 
     fun setAllowAny(ctx: Context, allow: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ALLOW_ANY, allow).apply()

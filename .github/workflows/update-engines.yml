@@ -1,0 +1,40 @@
+name: Update browser engines
+
+# Once or twice a month, or manual when you want newer Gecko / WebKit
+on:
+  schedule:
+    # 1st and 15th of each month at 12:00 UTC
+    - cron: '0 12 1,15 * *'
+  workflow_dispatch:
+
+jobs:
+  bump-engines:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve newest GeckoView + WebKit
+        run: python3 scripts/update-engines.py
+      - name: Show diff
+        run: |
+          git diff -- app/build.gradle.kts gradle/engine-versions.properties || true
+          cat gradle/engine-versions.properties
+      - name: Create PR if changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump GeckoView and AndroidX WebKit engines"
+          title: "chore: update browser engines (GeckoView + WebKit)"
+          body: |
+            Automated engine update (scheduled twice monthly or manual).
+
+            - **GeckoView** — newest Firefox engine from Mozilla Maven
+            - **AndroidX WebKit** — Chromium WebView support library
+
+            After merge, run **Build Family** and **Build Adult** workflows to ship APKs.
+          branch: chore/update-engines
+          delete-branch: true

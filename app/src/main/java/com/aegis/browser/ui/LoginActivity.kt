@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.aegis.browser.AegisApplication
+import com.aegis.browser.BuildConfig
 import com.aegis.browser.auth.CloudflareAuth
 import com.aegis.browser.auth.SessionStore
 import kotlinx.coroutines.launch
@@ -25,6 +26,12 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Adult build: no parental login gate
+        if (!BuildConfig.REQUIRE_LOGIN) {
+            startActivity(Intent(this, BrowserActivity::class.java))
+            finish()
+            return
+        }
         if (SessionStore.isLoggedIn(this)) {
             proceedToBrowser()
             return

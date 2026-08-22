@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
+import com.aegis.browser.BuildConfig
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
@@ -63,6 +64,9 @@ class AegisApplication : Application() {
         applicationScope.launch {
             try {
                 policyManager.refreshPolicies()
+                if (BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION) {
+                    com.aegis.browser.extensions.ExtensionManager.setAllowAny(this@AegisApplication, true)
+                }
                 pacProxyManager.applyDefaultPac()
                 val pacUrl = policyManager.currentPolicy.pacUrl
                     .ifBlank { PacProxyManager.DEFAULT_PAC_URL }

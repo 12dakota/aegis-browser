@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    // google-services removed — auth is Cloudflare Worker only (no Firebase client SDK)
 }
 
 android {
@@ -12,11 +11,35 @@ android {
         applicationId = "com.aegis.browser"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0-cloudauth"
+        versionCode = 3
+        versionName = "1.2.0-dual-engine"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        resValue("string", "app_name", "Aegis Browser")
+        buildConfigField("boolean", "ADULT_BUILD", "false")
+        buildConfigField("boolean", "REQUIRE_LOGIN", "true")
+        buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
+    }
+
+    flavorDimensions += "audience"
+    productFlavors {
+        create("family") {
+            dimension = "audience"
+            applicationId = "com.aegis.browser"
+            resValue("string", "app_name", "Aegis Browser")
+            buildConfigField("boolean", "ADULT_BUILD", "false")
+            buildConfigField("boolean", "REQUIRE_LOGIN", "true")
+            buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
+            versionNameSuffix = "-family"
+        }
+        create("adult") {
+            dimension = "audience"
+            applicationId = "com.aegis.browser.adult"
+            resValue("string", "app_name", "Aegis Open")
+            buildConfigField("boolean", "ADULT_BUILD", "true")
+            buildConfigField("boolean", "REQUIRE_LOGIN", "false")
+            buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "true")
+            versionNameSuffix = "-adult"
+        }
     }
 
     buildTypes {
@@ -53,14 +76,13 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-ktx:1.9.3")
+    // Chromium-based WebView helpers (updated by engine-update workflow)
     implementation("androidx.webkit:webkit:1.12.1")
-
-    // No Firebase client SDK — auth + policy secrets live in Cloudflare Workers
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Dual engine
+    // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
 
     testImplementation("junit:junit:4.13.2")

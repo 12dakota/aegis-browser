@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fetch Chromium Android source. Run on a large Linux builder.
+# OFFLINE BUILDER ONLY — requires 100GB+ disk. Do NOT run on limited GitHub accounts.
 set -euo pipefail
 
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"

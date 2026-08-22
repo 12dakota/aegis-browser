@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Build content_shell_apk for arm64. Run after 01-fetch-chromium.sh
+# OFFLINE BUILDER ONLY — requires 100GB+ disk. Do NOT run on limited GitHub accounts.
 set -euo pipefail
 
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"

@@ -1,4 +1,4 @@
-name: Build bundled Chromium (self-hosted)
+name: Build bundled Chromium (OFFLINE self-hosted only)
 
 # Requires a self-hosted runner with 100GB+ disk and 16GB+ RAM labeled:
 #   self-hosted, linux, chromium-builder

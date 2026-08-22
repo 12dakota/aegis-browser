@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Copy native libs + assets from a built ContentShell APK into Aegis app/
+# OFFLINE BUILDER ONLY — requires 100GB+ disk. Do NOT run on limited GitHub accounts.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

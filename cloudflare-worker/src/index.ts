@@ -508,6 +508,7 @@ function defaultPolicy() {
     disableUploads: true,
     forceSafeSearch: true,
     disableIncognito: true,
+    allowAnyExtension: false,
     updatedAt: new Date().toISOString(),
   };
 }

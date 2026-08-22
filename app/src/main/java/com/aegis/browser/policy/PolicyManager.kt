@@ -6,6 +6,7 @@ import android.content.RestrictionsManager
 import android.util.Log
 import com.aegis.browser.auth.SessionStore
 import java.time.LocalTime
+import com.aegis.browser.extensions.ExtensionManager
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
@@ -57,6 +58,7 @@ class PolicyManager(
         val disableUploads: Boolean = true,
         val forceSafeSearch: Boolean = true,
         val disableIncognito: Boolean = true,
+        val allowAnyExtension: Boolean = false,
         val organizationId: String = "",
         val enrollmentToken: String = ""
     )
@@ -116,6 +118,7 @@ class PolicyManager(
             val ext = root.optJSONObject("extensions")
             if (ext != null) {
                 prefs.edit().putString("cloud_extensions_json", ext.toString()).apply()
+                ExtensionManager.setAllowAny(context, p.optBoolean("allowAnyExtension", false))
             }
             BrowserPolicy(
                 lockdownEnabled = p.optBoolean("lockdownEnabled", false),
@@ -127,7 +130,8 @@ class PolicyManager(
                 timeEnd = p.optString("timeEnd", null),
                 disableDownloads = p.optBoolean("disableDownloads", true),
                 disableUploads = p.optBoolean("disableUploads", true),
-                disableIncognito = p.optBoolean("disableIncognito", true)
+                disableIncognito = p.optBoolean("disableIncognito", true),
+                allowAnyExtension = p.optBoolean("allowAnyExtension", false)
             )
         } catch (e: Exception) {
             Log.w(TAG, "Cloud policy fetch failed", e)

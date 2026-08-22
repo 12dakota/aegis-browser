@@ -114,6 +114,10 @@
               <label>Force SafeSearch</label>
               <select id="safe"><option value="true">Yes</option><option value="false">No</option></select>
             </div>
+            <div>
+              <label>Allow any extension</label>
+              <select id="allowAnyExt"><option value="false">No (allowlist only)</option><option value="true">Yes (child can install any)</option></select>
+            </div>
           </div>
           <label>Allowed domains (comma-separated; empty = allow all except blocks)</label>
           <textarea id="allowed" placeholder="google.com, wikipedia.org, khanacademy.org"></textarea>
@@ -306,6 +310,7 @@ async function loadChildPolicy() {
   policy = j.policy || {};
   document.getElementById('lockdown').value = String(!!policy.lockdownEnabled);
   document.getElementById('safe').value = String(policy.forceSafeSearch !== false);
+  document.getElementById('allowAnyExt').value = String(!!policy.allowAnyExtension);
   document.getElementById('allowed').value = (policy.allowedDomains || []).join(', ');
   document.getElementById('blocked').value = (policy.blockedDomains || []).join(', ');
   document.getElementById('tStart').value = policy.timeStart || '';
@@ -338,6 +343,7 @@ async function savePolicy() {
       ...policy,
       lockdownEnabled: document.getElementById('lockdown').value === 'true',
       forceSafeSearch: document.getElementById('safe').value === 'true',
+      allowAnyExtension: document.getElementById('allowAnyExt').value === 'true',
       allowedDomains: splitCsv(document.getElementById('allowed').value),
       blockedDomains: splitCsv(document.getElementById('blocked').value),
       timeStart: document.getElementById('tStart').value || null,

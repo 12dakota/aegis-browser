@@ -460,49 +460,54 @@ class BrowserActivity : AppCompatActivity() {
 
 
     private fun handlePossibleExtensionInstall(url: String): Boolean {
-        val lower = url.lowercase()
-        val isXpi = lower.contains(".xpi")
-        val isAddonPage = lower.contains("addons.mozilla.org") && lower.contains("/addon/")
-        if (!isXpi && !isAddonPage) return false
+        if (!ExtensionManager.isXpiOrAmoDownload(url)) return false
 
-        val entry = ExtensionManager.ALLOWLIST.find { e ->
-            lower.contains(e.id) ||
-                (lower.contains("ublock") && e.id == "ublock-origin") ||
-                lower.contains(e.chromeStoreId.lowercase())
+        val allowAny = ExtensionManager.isAllowAny(this) ||
+            policyManager.currentPolicy.allowAnyExtension
+        val entry = ExtensionManager.matchByUrl(url)
+
+        if (!allowAny && entry == null) {
+            Toast.makeText(
+                this,
+                "This extension is not on the parental allowlist. Parent can enable “Allow any extension”.",
+                Toast.LENGTH_LONG
+            ).show()
+            return true
         }
-        // Addon page for non-allowlisted: let page load; only block xpi installs
-        if (entry == null) {
-            if (isXpi) {
-                Toast.makeText(
-                    this,
-                    "This extension is not on the parental allowlist",
-                    Toast.LENGTH_LONG
-                ).show()
-                return true
-            }
-            return false
-        }
-        // For allowlisted addon *page*, still show install prompt when user hits xpi
-        // or when path clearly is the install package
-        if (!isXpi) return false
+
+        val title = entry?.name ?: "this extension"
+        val desc = entry?.description ?: url
 
         AlertDialog.Builder(this)
             .setTitle("Add to Aegis?")
             .setMessage(
-                "Install " + entry.name + "?\n\n" + entry.description +
-                    "\n\nExtensions run on the Gecko engine (like Firefox)."
+                "Install $title?
+
+$desc
+
+" +
+                    "Installs use the Gecko engine (Firefox-compatible). " +
+                    if (allowAny) "Unrestricted mode is ON." else "Allowlist mode."
             )
             .setPositiveButton("Add") { _, _ ->
-                ExtensionManager.setEnabled(this, entry.id, true)
+                if (entry != null) ExtensionManager.setEnabled(this, entry.id, true)
                 EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
-                Toast.makeText(this, "Installing " + entry.name + "…", Toast.LENGTH_SHORT).show()
-                ExtensionManager.ensureGeckoExtensions(this)
-                updateStatusBar()
-                Toast.makeText(
-                    this,
-                    entry.name + " enabled — open a Gecko tab (tap engine badge to G)",
-                    Toast.LENGTH_LONG
-                ).show()
+                // Prefer the actual XPI URL the user triggered (AMO download link)
+                val xpi = if (url.contains(".xpi", ignoreCase = true) ||
+                    url.contains("/downloads/", ignoreCase = true)
+                ) url else (entry?.amoXpiUrl ?: url)
+                Toast.makeText(this, "Installing…", Toast.LENGTH_SHORT).show()
+                ExtensionManager.installFromUrl(this, xpi) { ok, msg ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            if (ok) "Installed: $msg — use Gecko tabs (badge G)"
+                            else "Install failed: $msg",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        updateStatusBar()
+                    }
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()

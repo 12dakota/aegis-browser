@@ -2,6 +2,8 @@ package com.aegis.browser.engine
 
 import android.content.Context
 import android.view.View
+import org.mozilla.geckoview.AllowOrDeny
+import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 
@@ -57,6 +59,26 @@ class GeckoEngine(context: Context) : BrowserEngine {
 
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) {
                 canGoForwardFlag = canGoForward
+            }
+
+            override fun onLoadRequest(
+                session: GeckoSession,
+                request: GeckoSession.NavigationDelegate.LoadRequest
+            ): GeckoResult<AllowOrDeny>? {
+                val uri = request.uri ?: return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+                // Intercept XPI / AMO download installs before Gecko tries to download the file
+                if (uri.contains(".xpi", ignoreCase = true) ||
+                    (uri.contains("addons.mozilla.org", ignoreCase = true) &&
+                        (uri.contains("/downloads/", ignoreCase = true) ||
+                            uri.contains("type=extension", ignoreCase = true)))
+                ) {
+                    val block = navigationListener?.shouldOverrideUrlLoading(uri) == true
+                    if (block) {
+                        return GeckoResult.fromValue(AllowOrDeny.DENY)
+                    }
+                }
+                val blocked = navigationListener?.shouldOverrideUrlLoading(uri) == true
+                return GeckoResult.fromValue(if (blocked) AllowOrDeny.DENY else AllowOrDeny.ALLOW)
             }
         }
 

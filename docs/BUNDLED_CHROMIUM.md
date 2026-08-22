@@ -1,4 +1,4 @@
-# Chromium / Blink in Aegis (size-constrained)
+# Chromium / Blink in Provonlong (size-constrained)
 
 ## Account / size rules
 
@@ -16,7 +16,7 @@ We never clone Firefox source into this repo.
 Google publishes Chromium for Android as **System WebView** (and Trichrome).
 That **is** the Blink/Chromium engine, prebuilt and updated via Play Store.
 
-| Engine | Prebuilt provider | Extra size in Aegis APK |
+| Engine | Prebuilt provider | Extra size in Provonlong APK |
 |--------|-------------------|-------------------------|
 | Gecko | GeckoView AAR (Maven) | ~150–250 MB (natives) |
 | Chromium/Blink | System WebView | **~0 MB** (uses OS) |
@@ -32,7 +32,7 @@ That **is** the Blink/Chromium engine, prebuilt and updated via Play Store.
 ## Full Chrome extensions
 
 Still require a Chrome-level host, not a 100 MB slice of an APK.
-Gecko + AMO remains the supported extension path in Aegis.
+Gecko + AMO remains the supported extension path in Provonlong.
 
 ## Scripts under scripts/chromium/
 

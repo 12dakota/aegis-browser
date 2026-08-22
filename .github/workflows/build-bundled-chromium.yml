@@ -24,7 +24,7 @@ jobs:
         run: |
           export CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
           bash scripts/chromium/02-build-content-shell.sh
-      - name: Package into Aegis tree
+      - name: Package into Provonlong tree
         run: |
           export CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
           bash scripts/chromium/03-package-into-aegis.sh

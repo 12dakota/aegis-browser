@@ -1,11 +1,11 @@
-# Aegis Browser – Architecture & Roadmap
+# Provonlong Web Browser – Architecture & Roadmap
 
 ## Vision
 A Chromium-based secure browser for Android (with future desktop parity) that:
 - Requires login (Firebase + Cloudflare Worker) – never optional
 - Is managed by parents / MDM with remote lockdown
 - Uses a PAC-based application proxy firewall (PAC supplied by you later)
-- Supports controlled extensions / “Aegis Modules” that parents can push remotely
+- Supports controlled extensions / “Provonlong Modules” that parents can push remotely
 - Is significantly harder for children to bypass than Google Family Link
 - Keeps all secrets in the cloud (Cloudflare Worker), not in the APK
 
@@ -52,8 +52,8 @@ Cloning and building Chromium for Android is a large-scale engineering project:
 This gives us a working, installable APK today. Later we replace the WebView with a real Chromium Android fork while keeping the same policy, auth, PAC, and extension APIs.
 
 ### 4. Extension support + parental remote install
-- Short term: “Aegis Modules” – controlled content scripts / JS modules that parents approve and push via the management console / FCM.
-- Medium term (full Chromium fork): Native Manifest V3 extension support + a private Aegis Extension Store. Parents can force-install or allowlist extensions for a child’s account. Children cannot install anything themselves.
+- Short term: “Provonlong Modules” – controlled content scripts / JS modules that parents approve and push via the management console / FCM.
+- Medium term (full Chromium fork): Native Manifest V3 extension support + a private Provonlong Extension Store. Parents can force-install or allowlist extensions for a child’s account. Children cannot install anything themselves.
 
 ## High-Level Components
 
@@ -75,7 +75,7 @@ This gives us a working, installable APK today. Later we replace the WebView wit
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                 Aegis Browser (Android APK)                 │
+│                 Provonlong Web Browser (Android APK)                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
 │  │ Firebase    │  │ PolicyManager│  │ PacProxyManager  │   │
 │  │ Auth (req.) │  │ MDM + FCM +  │  │ (Cloudflare      │   │
@@ -84,7 +84,7 @@ This gives us a working, installable APK today. Later we replace the WebView wit
 │  ┌─────────────┐  ┌──────────────┐                         │
 │  │ Dual Engine │  │ Extension    │                         │
 │  │ Chromium +  │  │ Manager      │                         │
-│  │ Gecko       │  │ (Aegis Mods) │                         │
+│  │ Gecko       │  │ (Provonlong Mods) │                         │
 │  └─────────────┘  └──────────────┘                         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -122,7 +122,7 @@ Will be written later and must be accepted at first login. Required for Google P
 - [x] Basic WebView browser with URL/time/category gating
 - [ ] Real layout XML + ViewBinding
 - [ ] Full Google Sign-In / SSO through the Worker
-- [ ] Aegis Module (extension) download & injection system
+- [ ] Provonlong Module (extension) download & injection system
 - [ ] Parent management web console
 - [ ] Device Owner setup documentation for strong lockdown
 - [ ] Replace WebView with a real Chromium Android binary (long-term)

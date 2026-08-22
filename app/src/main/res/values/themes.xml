@@ -2,7 +2,7 @@
 <resources>
     <!-- Google Material 3 Expressive (2025–26 “next Material” / Material You).
          Dynamic color follows wallpaper on Android 12+. -->
-    <style name="Theme.AegisBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
+    <style name="Theme.ProvonlongBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
         <item name="colorPrimary">@color/md_primary</item>
         <item name="colorOnPrimary">@color/md_on_primary</item>
         <item name="colorPrimaryContainer">@color/md_primary_container</item>
@@ -26,7 +26,7 @@
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Material3.Corner.Large</item>
     </style>
 
-    <style name="Theme.AegisBrowser.NoActionBar" parent="Theme.AegisBrowser">
+    <style name="Theme.ProvonlongBrowser.NoActionBar" parent="Theme.ProvonlongBrowser">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>

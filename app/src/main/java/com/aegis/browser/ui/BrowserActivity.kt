@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
  * Chrome-like browser shell - entirely our UI and control code.
  *
  * Familiar Chrome patterns (omnibox, tabs, toolbar, progress) implemented by us.
- * Engines, policy, PAC, auth, and lockdown remain Aegis-owned.
+ * Engines, policy, PAC, auth, and lockdown remain Provonlong-owned.
  */
 class BrowserActivity : AppCompatActivity() {
 
@@ -129,6 +129,12 @@ class BrowserActivity : AppCompatActivity() {
             this,
             policyReceiver,
             IntentFilter(PolicyManager.ACTION_POLICY_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        ContextCompat.registerReceiver(
+            this,
+            downloadReceiver,
+            IntentFilter(DownloadCoordinator.ACTION_PROGRESS),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
@@ -915,7 +921,7 @@ class BrowserActivity : AppCompatActivity() {
             "System WebView"
         }
         val msg = """
-            Aegis Browser
+            Provonlong Web Browser
             Chrome-like shell - our own code.
 
             Engines: Chromium (Google System WebView) + Gecko (GeckoView)

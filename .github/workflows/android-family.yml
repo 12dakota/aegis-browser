@@ -1,4 +1,4 @@
-name: Build Family (Aegis)
+name: Build Family (Provonlong)
 
 on:
   push:
@@ -26,20 +26,23 @@ jobs:
       - run: chmod +x ./gradlew
       - name: Assemble familyDebug
         id: build
+        env:
+          GRADLE_OPTS: -Xmx4g -Dorg.gradle.daemon=false
         run: ./gradlew assembleFamilyDebug --stacktrace --no-daemon
-      - name: Stage APK as aegis-family-debug.apk
+      - name: Stage APK as provonlong-family-debug.apk
         run: |
           mkdir -p release-assets
           SRC=$(find app/build/outputs/apk/family -name "*.apk" | head -1)
           echo "Source: $SRC"
-          cp "$SRC" release-assets/aegis-family-debug.apk
+          test -n "$SRC" -a -f "$SRC"
+          cp "$SRC" release-assets/provonlong-family-debug.apk
           ls -la release-assets/
       - uses: actions/upload-artifact@v4
         if: success()
         continue-on-error: true
         with:
-          name: aegis-family-debug
-          path: release-assets/aegis-family-debug.apk
+          name: provonlong-family-debug
+          path: release-assets/provonlong-family-debug.apk
           retention-days: 3
           if-no-files-found: warn
       - name: Publish family-debug to GitHub Releases
@@ -47,17 +50,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: family-${{ github.run_number }}
-          name: Aegis Family (family-debug) #${{ github.run_number }}
+          name: Provonlong Web Browser (family-debug) #${{ github.run_number }}
           body: |
-            ## Aegis Browser — family / parental build
+            ## Provonlong Web Browser — family / parental build
 
-            **Asset:** `aegis-family-debug.apk`
+            **Asset:** `provonlong-family-debug.apk`
 
             - Package id: `com.aegis.browser`
             - Mandatory login + cloud policy
             - Dual engine + extension controls
             - Commit: `${{ github.sha }}`
-          files: release-assets/aegis-family-debug.apk
+          files: release-assets/provonlong-family-debug.apk
           draft: false
           prerelease: true
           make_latest: false

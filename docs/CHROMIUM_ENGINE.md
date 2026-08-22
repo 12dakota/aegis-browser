@@ -1,4 +1,4 @@
-# Chromium engine in Aegis
+# Chromium engine in Provonlong
 
 ## What ships today
 
@@ -20,7 +20,7 @@ To ship a **pinned** Chromium revision inside the APK you must:
 
 1. Check out [Chromium for Android](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/android_build_instructions.md)
 2. Build `content_shell_apk` or a custom `//content` embedder (many hours, tens of GB)
-3. Rewrite Aegis’s `ChromiumEngine` against that embedder’s API (not `android.webkit.WebView`)
+3. Rewrite Provonlong’s `ChromiumEngine` against that embedder’s API (not `android.webkit.WebView`)
 
 That path is **not** wired into CI today because it cannot run on standard GitHub-hosted runners in a reasonable time/disk budget.
 

@@ -17,5 +17,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AegisBrowser"
+rootProject.name = "ProvonlongWebBrowser"
 include(":app")

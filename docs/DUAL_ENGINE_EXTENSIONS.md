@@ -11,7 +11,7 @@ AUTO mode switches which engine paints a tab. They are not mixed in one view.
 
 | Store / type | Engine | Status |
 |--------------|--------|--------|
-| AMO / Firefox WebExtensions | Gecko | Supported in Aegis |
+| AMO / Firefox WebExtensions | Gecko | Supported in Provonlong |
 | Chrome Web Store | Would need full Chrome embedder | Not available in a ~100 MB add |
 
 ## Size budget

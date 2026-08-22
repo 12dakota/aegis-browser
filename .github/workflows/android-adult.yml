@@ -26,20 +26,23 @@ jobs:
       - run: chmod +x ./gradlew
       - name: Assemble adultDebug
         id: build
+        env:
+          GRADLE_OPTS: -Xmx4g -Dorg.gradle.daemon=false
         run: ./gradlew assembleAdultDebug --stacktrace --no-daemon
-      - name: Stage APK as aegis-adult-debug.apk
+      - name: Stage APK as provonlong-adult-debug.apk
         run: |
           mkdir -p release-assets
           SRC=$(find app/build/outputs/apk/adult -name "*.apk" | head -1)
           echo "Source: $SRC"
-          cp "$SRC" release-assets/aegis-adult-debug.apk
+          test -n "$SRC" -a -f "$SRC"
+          cp "$SRC" release-assets/provonlong-adult-debug.apk
           ls -la release-assets/
       - uses: actions/upload-artifact@v4
         if: success()
         continue-on-error: true
         with:
-          name: aegis-adult-debug
-          path: release-assets/aegis-adult-debug.apk
+          name: provonlong-adult-debug
+          path: release-assets/provonlong-adult-debug.apk
           retention-days: 3
           if-no-files-found: warn
       - name: Publish adult-debug to GitHub Releases
@@ -51,7 +54,7 @@ jobs:
           body: |
             ## Provonlong Web Browser — adult build
 
-            **Asset:** `aegis-adult-debug.apk` (select this for the adult build)
+            **Asset:** `provonlong-adult-debug.apk` (select this for the adult build)
 
             - Launcher name: Provonlong Web Browser
             - Package id: `com.aegis.browser.adult`
@@ -61,7 +64,7 @@ jobs:
             - Commit: `${{ github.sha }}`
 
             Install alongside the Family APK if desired (different applicationId).
-          files: release-assets/aegis-adult-debug.apk
+          files: release-assets/provonlong-adult-debug.apk
           draft: false
           prerelease: false
           make_latest: true

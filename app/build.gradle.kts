@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.aegis.browser"
-        minSdk = 26
+        minSdk = 31
         targetSdk = 36
         versionCode = 3
         versionName = "1.2.0-dual-engine"

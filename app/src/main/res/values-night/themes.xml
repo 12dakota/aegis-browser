@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AegisBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
+    <style name="Theme.ProvonlongBrowser" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
         <item name="colorPrimary">#ADC6FF</item>
         <item name="colorOnPrimary">#122F60</item>
         <item name="colorPrimaryContainer">#2B4678</item>

@@ -45,7 +45,7 @@ class SettingsActivity : AppCompatActivity() {
         val title = TextView(this).apply {
             text = "Settings"
             textSize = 20f
-            setTextColor(MaterialPalette.onSurface(this))
+            setTextColor(MaterialPalette.onSurface(this@SettingsActivity))
             setPadding(ChromeUi.dp(this@SettingsActivity, 8), 0, 0, 0)
         }
         bar.addView(back)

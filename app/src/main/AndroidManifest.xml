@@ -87,6 +87,12 @@
             android:label="Settings"
             android:theme="@style/Theme.ProvonlongBrowser.NoActionBar" />
 
+        <activity
+            android:name=".ui.DownloadsActivity"
+            android:exported="false"
+            android:label="Downloads"
+            android:theme="@style/Theme.ProvonlongBrowser.NoActionBar" />
+
         <service
             android:name=".downloads.DownloadService"
             android:exported="false"

@@ -838,7 +838,7 @@ class BrowserActivity : AppCompatActivity() {
         }
         add("Downloads", R.drawable.ic_nav_download) {
             dlg.dismiss()
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(Intent(this, DownloadsActivity::class.java))
         }
         add("Desktop site", R.drawable.ic_nav_desktop) {
             val next = !com.aegis.browser.downloads.UserSettings.desktopUa(this)

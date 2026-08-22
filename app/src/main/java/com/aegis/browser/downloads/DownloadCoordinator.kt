@@ -80,6 +80,7 @@ object DownloadCoordinator {
     fun host(url: String): String = Uri.parse(url).host ?: "host"
 
     fun broadcast(ctx: Context, id: Long, name: String, host: String, state: String, progress: Int, message: String, uri: String? = null) {
+        DownloadStore.upsert(id, name, host, state, progress, message, uri)
         ctx.sendBroadcast(
             Intent(ACTION_PROGRESS)
                 .setPackage(ctx.packageName)

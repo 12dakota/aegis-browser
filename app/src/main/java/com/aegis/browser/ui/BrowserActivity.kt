@@ -618,61 +618,162 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun showExtensionsMenu() {
-        val entries = ExtensionManager.ALLOWLIST
-        val labels = entries.map { e ->
-            val on = ExtensionManager.isEnabled(this, e.id)
-            "${if (on) "✓" else "○"} ${e.name}"
-        }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Extensions (allowlist only)")
-            .setItems(labels) { _, which ->
-                val entry = entries[which]
-                showExtensionDetail(entry)
+        Toast.makeText(this, "Loading installed extensions…", Toast.LENGTH_SHORT).show()
+        ExtensionManager.listInstalled(this) { installed ->
+            runOnUiThread {
+                val allowAny = ExtensionManager.isAllowAny(this) ||
+                    policyManager.currentPolicy.allowAnyExtension
+                val items = mutableListOf<String>()
+                val actions = mutableListOf<() -> Unit>()
+
+                if (installed.isEmpty()) {
+                    items.add("(none installed yet — open AMO and Add to Firefox)")
+                    actions.add { }
+                } else {
+                    for (ext in installed) {
+                        val mark = if (ext.enabled) "✓" else "○"
+                        items.add("$mark ${ext.name}  v${ext.version}")
+                        actions.add { showInstalledExtensionDetail(ext) }
+                    }
+                }
+
+                items.add("── Catalog / install ──")
+                actions.add { }
+
+                for (e in ExtensionManager.ALLOWLIST) {
+                    items.add("＋ ${e.name}")
+                    actions.add { showCatalogExtensionDetail(e) }
+                }
+
+                items.add("Open Mozilla Add-ons (AMO)")
+                actions.add { loadInActiveTab("https://addons.mozilla.org/firefox/") }
+                items.add("Open Chrome Web Store")
+                actions.add { loadInActiveTab("https://chromewebstore.google.com/") }
+
+                val title = if (allowAny) "Extensions (unrestricted)" else "Extensions (allowlist)"
+                AlertDialog.Builder(this)
+                    .setTitle(title)
+                    .setItems(items.toTypedArray()) { _, which ->
+                        if (which in actions.indices) actions[which].invoke()
+                    }
+                    .setPositiveButton("Refresh") { _, _ -> showExtensionsMenu() }
+                    .setNegativeButton("Close", null)
+                    .show()
             }
-            .setNeutralButton("AMO store") { _, _ ->
-                loadInActiveTab("https://addons.mozilla.org/firefox/")
-            }
-            .setNegativeButton("Chrome store") { _, _ ->
-                loadInActiveTab("https://chromewebstore.google.com/")
-            }
-            .setPositiveButton("Close", null)
-            .show()
+        }
     }
 
-    private fun showExtensionDetail(entry: ExtensionManager.CatalogEntry) {
+    private fun showInstalledExtensionDetail(ext: ExtensionManager.InstalledExtension) {
+        val perms = if (ext.permissions.isEmpty()) "(none listed)"
+            else ext.permissions.joinToString(", ")
+        val origins = if (ext.origins.isEmpty()) "(none)" else ext.origins.take(8).joinToString("\n")
+        val msg = """
+            ${ext.name}
+            id: ${ext.id}
+            version: ${ext.version}
+            status: ${if (ext.enabled) "ENABLED" else "disabled"}
+
+            ${ext.description}
+
+            Permissions:
+            $perms
+
+            Host access:
+            $origins
+
+            Options page: ${ext.optionsPageUrl ?: "(none — will try popup paths)"}
+        """.trimIndent()
+
+        val builder = AlertDialog.Builder(this)
+            .setTitle(ext.name)
+            .setMessage(msg)
+            .setPositiveButton("Open settings / menu") { _, _ ->
+                openExtensionUi(ext)
+            }
+            .setNeutralButton(if (ext.enabled) "Disable" else "Enable") { _, _ ->
+                ExtensionManager.setExtensionEnabled(this, ext.id, !ext.enabled) { ok, m ->
+                    runOnUiThread {
+                        Toast.makeText(this, if (ok) m else "Failed: $m", Toast.LENGTH_SHORT).show()
+                        updateStatusBar()
+                    }
+                }
+            }
+            .setNegativeButton("Uninstall") { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle("Uninstall ${ext.name}?")
+                    .setPositiveButton("Uninstall") { _, _ ->
+                        ExtensionManager.uninstall(this, ext.id) { ok, m ->
+                            runOnUiThread {
+                                Toast.makeText(this, if (ok) "Uninstalled" else m, Toast.LENGTH_SHORT).show()
+                                updateStatusBar()
+                            }
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        builder.show()
+    }
+
+    private fun openExtensionUi(ext: ExtensionManager.InstalledExtension) {
+        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+        val url = ExtensionManager.optionsOrPopupUrl(ext)
+        if (url.isNullOrBlank()) {
+            Toast.makeText(
+                this,
+                "No options page for this extension. It still runs in the background on Gecko tabs.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        Toast.makeText(this, "Opening extension UI…", Toast.LENGTH_SHORT).show()
+        val tab = tabManager.createTab(url)
+        tabManager.switchTo(tab.id)
+        showActiveTab()
+        refreshTabStrip()
+    }
+
+    private fun showCatalogExtensionDetail(entry: ExtensionManager.CatalogEntry) {
         val enabled = ExtensionManager.isEnabled(this, entry.id)
         val msg = """
             ${entry.name}
             ${entry.description}
 
-            Stores: Mozilla AMO + Chrome Web Store
-            Status: ${if (enabled) "ENABLED" else "disabled"}
+            Catalog id: ${entry.id}
+            AMO id: ${entry.amoId}
 
-            Installs only work for allowlisted add-ons.
-            Full WebExtensions run on the Gecko engine.
+            Tap Install to download the signed XPI via Gecko.
+            After install it appears in the installed list above.
+            Use Open settings on the installed entry for its menu / options HTML.
         """.trimIndent()
         AlertDialog.Builder(this)
             .setTitle(entry.name)
             .setMessage(msg)
-            .setPositiveButton(if (enabled) "Disable" else "Enable") { _, _ ->
-                ExtensionManager.setEnabled(this, entry.id, !enabled)
-                if (!enabled) {
-                    ExtensionManager.ensureGeckoExtensions(this)
-                    // Prefer Gecko so extension can run
-                    EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
-                    Toast.makeText(this, "${entry.name} enabled - use Gecko engine", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this, "${entry.name} disabled", Toast.LENGTH_SHORT).show()
+            .setPositiveButton("Install") { _, _ ->
+                EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+                ExtensionManager.setEnabled(this, entry.id, true)
+                Toast.makeText(this, "Installing ${entry.name}…", Toast.LENGTH_SHORT).show()
+                ExtensionManager.installFromUrl(this, entry.amoXpiUrl) { ok, m ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            if (ok) "Installed: $m — open Extensions list to configure"
+                            else "Install failed: $m",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        updateStatusBar()
+                    }
                 }
-                updateStatusBar()
             }
-            .setNeutralButton("Open AMO") { _, _ ->
-                loadInActiveTab(entry.amoXpiUrl.replace("/downloads/latest/ublock-origin/latest.xpi", "/firefox/addon/ublock-origin/"))
+            .setNeutralButton("Open AMO page") { _, _ ->
+                loadInActiveTab("https://addons.mozilla.org/firefox/addon/${entry.id}/")
             }
-            .setNegativeButton("Open Chrome store") { _, _ ->
-                loadInActiveTab(entry.chromeStoreUrl)
-            }
+            .setNegativeButton("Close", null)
             .show()
+    }
+
+    private fun showExtensionDetail(entry: ExtensionManager.CatalogEntry) {
+        showCatalogExtensionDetail(entry)
     }
 
     private fun showAbout() {

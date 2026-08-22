@@ -83,6 +83,11 @@ object EngineSelector {
             Preference.AUTO -> { /* fall through */ }
         }
 
+        // Extension pages only work in Gecko
+        if (url.startsWith("moz-extension://", ignoreCase = true)) {
+            return BrowserEngine.Type.GECKO
+        }
+
         val host = try {
             Uri.parse(url).host?.lowercase()?.removePrefix("www.")
                 ?: return BrowserEngine.Type.CHROMIUM

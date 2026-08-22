@@ -27,6 +27,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.aegis.browser.AegisApplication
+import com.aegis.browser.BuildConfig
 import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
@@ -74,7 +75,8 @@ class BrowserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!SessionStore.isLoggedIn(this)) {
+        // Family build requires cloud login; adult (Aegis Open) does not
+        if (BuildConfig.REQUIRE_LOGIN && !SessionStore.isLoggedIn(this)) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return

@@ -63,16 +63,21 @@ class AegisApplication : Application() {
 
         applicationScope.launch {
             try {
-                policyManager.refreshPolicies()
                 if (BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION) {
                     com.aegis.browser.extensions.ExtensionManager.setAllowAny(this@AegisApplication, true)
                 }
-                pacProxyManager.applyDefaultPac()
-                val pacUrl = policyManager.currentPolicy.pacUrl
-                    .ifBlank { PacProxyManager.DEFAULT_PAC_URL }
-                val applied = DeviceOwnerHelper.applyGlobalPac(this@AegisApplication, pacUrl)
-                Log.i(TAG, "Device Owner: ${DeviceOwnerHelper.getStatusSummary(this@AegisApplication)}")
-                Log.i(TAG, "Global PAC applied: $applied")
+                // Family: cloud policy + PAC. Adult: skip forced Gateway PAC so browsing works offline/normal net.
+                if (BuildConfig.REQUIRE_LOGIN) {
+                    policyManager.refreshPolicies()
+                    pacProxyManager.applyDefaultPac()
+                    val pacUrl = policyManager.currentPolicy.pacUrl
+                        .ifBlank { PacProxyManager.DEFAULT_PAC_URL }
+                    val applied = DeviceOwnerHelper.applyGlobalPac(this@AegisApplication, pacUrl)
+                    Log.i(TAG, "Device Owner: ${DeviceOwnerHelper.getStatusSummary(this@AegisApplication)}")
+                    Log.i(TAG, "Global PAC applied: $applied")
+                } else {
+                    Log.i(TAG, "Adult build: open mode, no forced PAC / login policy")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Background policy/PAC refresh failed", e)
             }

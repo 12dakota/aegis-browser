@@ -34,6 +34,9 @@ import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore
 import com.aegis.browser.extensions.ExtensionManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Chrome-like browser shell - entirely our UI and control code.
@@ -535,11 +538,12 @@ class BrowserActivity : AppCompatActivity() {
     private fun updateStatusBar() {
         val lockdown = policyManager.currentPolicy.lockdownEnabled
         val owner = DeviceOwnerHelper.getStatusSummary(this)
+        val anyExt = ExtensionManager.isAllowAny(this) || policyManager.currentPolicy.allowAnyExtension
         val extCount = ExtensionManager.enabledEntries(this).size
         statusBar.text = buildString {
             append(if (lockdown) "LOCKDOWN • " else "Aegis • ")
             append(pacManager.getActiveProxyDescription())
-            append(" • Ext:$extCount")
+            append(if (anyExt) " • Ext:ANY" else " • Ext:$extCount")
             append(" • Tabs:${tabManager.count}")
             append(" • ")
             append(owner.take(20))
@@ -712,6 +716,17 @@ class BrowserActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         tabManager.activeTab?.engine?.onResume()
+        // Pull latest parent policy (including allowAnyExtension unrestricted mode)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                policyManager.refreshPolicies()
+                runOnUiThread {
+                    applyPolicyToChrome()
+                    updateStatusBar()
+                }
+            } catch (_: Exception) {
+            }
+        }
     }
 
     override fun onPause() {

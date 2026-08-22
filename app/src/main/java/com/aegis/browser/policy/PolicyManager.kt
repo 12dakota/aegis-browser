@@ -91,51 +91,65 @@ class PolicyManager(
             organizationId = orgId,
             enrollmentToken = mdmPolicy.enrollmentToken
         )
-        if (cloudPolicy.allowAnyExtension) {
-            ExtensionManager.setAllowAny(context, true)
-        }
+        ExtensionManager.setAllowAny(context, cloudPolicy.allowAnyExtension)
+        Log.i(TAG, "Applied allowAnyExtension=" + cloudPolicy.allowAnyExtension)
 
         Log.i(TAG, "Policies refreshed. Lockdown=${currentPolicy.lockdownEnabled}")
         prefs.edit().putBoolean(KEY_LAST_LOCKDOWN, currentPolicy.lockdownEnabled).apply()
     }
 
 
+
     private fun readCloudPolicy(): BrowserPolicy {
         return try {
-            val url = URL("https://aegis-auth.dakdra03.workers.dev/policy/get")
+            val userId = SessionStore.getUserId(context).orEmpty()
+            val token = SessionStore.getToken(context).orEmpty()
+            val base = "https://aegis-auth.dakdra03.workers.dev/policy/get"
+            val qs = if (userId.isNotBlank()) "?userId=" + java.net.URLEncoder.encode(userId, "UTF-8") else ""
+            val url = URL(base + qs)
             val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10000
-                readTimeout = 10000
+                connectTimeout = 12000
+                readTimeout = 12000
                 requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                if (token.isNotBlank()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
             }
-            if (conn.responseCode !in 200..299) return BrowserPolicy()
+            if (conn.responseCode !in 200..299) {
+                Log.w(TAG, "Cloud policy HTTP " + conn.responseCode)
+                return BrowserPolicy()
+            }
             val text = conn.inputStream.bufferedReader().readText()
+            Log.i(TAG, "Cloud policy response length=" + text.length)
             val root = JSONObject(text)
-            val p = root.optJSONObject("policy") ?: return BrowserPolicy()
+            val pol = root.optJSONObject("policy") ?: return BrowserPolicy()
             val allowed = mutableSetOf<String>()
-            val arr = p.optJSONArray("allowedDomains")
+            val arr = pol.optJSONArray("allowedDomains")
             if (arr != null) for (i in 0 until arr.length()) allowed.add(arr.getString(i).lowercase())
             val blockedCat = mutableSetOf<String>()
-            val bc = p.optJSONArray("blockedCategories")
+            val bc = pol.optJSONArray("blockedCategories")
             if (bc != null) for (i in 0 until bc.length()) blockedCat.add(bc.getString(i).lowercase())
-            // Persist extension allowlist from cloud for ExtensionManager
+            val allowAny = pol.optBoolean("allowAnyExtension", false)
+            // Always sync local unrestricted flag from cloud (true or false)
+            ExtensionManager.setAllowAny(context, allowAny)
+            Log.i(TAG, "Cloud policy allowAnyExtension=" + allowAny + " scope=" + root.optString("scope", "?"))
             val ext = root.optJSONObject("extensions")
             if (ext != null) {
                 prefs.edit().putString("cloud_extensions_json", ext.toString()).apply()
-                ExtensionManager.setAllowAny(context, p.optBoolean("allowAnyExtension", false))
             }
             BrowserPolicy(
-                lockdownEnabled = p.optBoolean("lockdownEnabled", false),
-                pacUrl = p.optString("pacUrl", ""),
-                forceSafeSearch = p.optBoolean("forceSafeSearch", true),
+                lockdownEnabled = pol.optBoolean("lockdownEnabled", false),
+                pacUrl = pol.optString("pacUrl", ""),
+                forceSafeSearch = pol.optBoolean("forceSafeSearch", true),
                 allowedDomains = allowed,
                 blockedCategories = if (blockedCat.isEmpty()) setOf("adult", "gambling") else blockedCat,
-                timeStart = p.optString("timeStart", null),
-                timeEnd = p.optString("timeEnd", null),
-                disableDownloads = p.optBoolean("disableDownloads", true),
-                disableUploads = p.optBoolean("disableUploads", true),
-                disableIncognito = p.optBoolean("disableIncognito", true),
-                allowAnyExtension = p.optBoolean("allowAnyExtension", false)
+                timeStart = pol.optString("timeStart", null).takeIf { !it.isNullOrBlank() && it != "null" },
+                timeEnd = pol.optString("timeEnd", null).takeIf { !it.isNullOrBlank() && it != "null" },
+                disableDownloads = pol.optBoolean("disableDownloads", true),
+                disableUploads = pol.optBoolean("disableUploads", true),
+                disableIncognito = pol.optBoolean("disableIncognito", true),
+                allowAnyExtension = allowAny
             )
         } catch (e: Exception) {
             Log.w(TAG, "Cloud policy fetch failed", e)

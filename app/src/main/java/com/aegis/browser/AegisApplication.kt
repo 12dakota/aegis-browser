@@ -63,8 +63,9 @@ class AegisApplication : Application() {
 
         applicationScope.launch {
             try {
-                if (BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION) {
+                if (BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION || BuildConfig.ADULT_BUILD) {
                     com.aegis.browser.extensions.ExtensionManager.setAllowAny(this@AegisApplication, true)
+                    android.util.Log.i(TAG, "Adult/Open: allowAnyExtension forced true")
                 }
                 // Family: cloud policy + PAC. Adult: skip forced Gateway PAC so browsing works offline/normal net.
                 if (BuildConfig.REQUIRE_LOGIN) {

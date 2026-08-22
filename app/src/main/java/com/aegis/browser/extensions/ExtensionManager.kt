@@ -75,8 +75,15 @@ object ExtensionManager {
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun isAllowAny(ctx: Context): Boolean =
-        prefs(ctx).getBoolean(KEY_ALLOW_ANY, BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION)
+    fun isAllowAny(ctx: Context): Boolean {
+        // Adult / Aegis Open: unrestricted unless user explicitly disabled in prefs
+        if (BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION || BuildConfig.ADULT_BUILD) {
+            // Prefer explicit true; default true on adult even if key missing
+            if (!prefs(ctx).contains(KEY_ALLOW_ANY)) return true
+            return prefs(ctx).getBoolean(KEY_ALLOW_ANY, true)
+        }
+        return prefs(ctx).getBoolean(KEY_ALLOW_ANY, false)
+    }
 
     fun setAllowAny(ctx: Context, allow: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ALLOW_ANY, allow).apply()
@@ -119,9 +126,10 @@ object ExtensionManager {
                     dataCollectionPermissions: Array<String>
                 ): GeckoResult<WebExtension.PermissionPromptResponse>? {
                     val id = extension.id
-                    val allow = isAllowAny(ctx) || isAllowlisted(id) ||
+                    val allow = isAllowAny(ctx) || BuildConfig.ADULT_BUILD ||
+                        isAllowlisted(id) ||
                         ALLOWLIST.any { it.amoId == id || id.contains(it.id) }
-                    Log.i(TAG, "onInstallPromptRequest id=$id allow=$allow perms=${permissions.joinToString()}")
+                    Log.i(TAG, "onInstallPromptRequest id=$id allow=$allow adult=${BuildConfig.ADULT_BUILD}")
                     prefs(ctx).edit()
                         .putString(KEY_GRANTED_PERMS + id, permissions.joinToString(","))
                         .apply()
@@ -137,7 +145,7 @@ object ExtensionManager {
                     origins: Array<String>,
                     dataCollectionPermissions: Array<String>
                 ): GeckoResult<AllowOrDeny>? {
-                    val allow = isAllowAny(ctx) || isAllowlisted(extension.id)
+                    val allow = isAllowAny(ctx) || BuildConfig.ADULT_BUILD || isAllowlisted(extension.id)
                     Log.i(TAG, "onOptionalPrompt id=${extension.id} allow=$allow")
                     return GeckoResult.fromValue(if (allow) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
                 }
@@ -148,11 +156,11 @@ object ExtensionManager {
                     newOrigins: Array<String>,
                     newDataCollectionPermissions: Array<String>
                 ): GeckoResult<AllowOrDeny>? {
-                    val allow = isAllowAny(ctx) || isAllowlisted(extension.id)
+                    val allow = isAllowAny(ctx) || BuildConfig.ADULT_BUILD || isAllowlisted(extension.id)
                     return GeckoResult.fromValue(if (allow) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
                 }
             }
-            Log.i(TAG, "PromptDelegate attached (allowAny=" + isAllowAny(ctx) + ")")
+            Log.i(TAG, "PromptDelegate attached (allowAny=" + isAllowAny(ctx) + " adult=" + BuildConfig.ADULT_BUILD + ")")
         } catch (e: Exception) {
             Log.e(TAG, "PromptDelegate setup failed", e)
         }

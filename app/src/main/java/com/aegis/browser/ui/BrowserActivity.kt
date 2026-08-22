@@ -468,6 +468,8 @@ class BrowserActivity : AppCompatActivity() {
         if (!ExtensionManager.isXpiOrAmoDownload(url)) return false
 
         val allowAny = ExtensionManager.isAllowAny(this) ||
+            BuildConfig.ADULT_BUILD ||
+            BuildConfig.DEFAULT_ALLOW_ANY_EXTENSION ||
             policyManager.currentPolicy.allowAnyExtension
         val entry = ExtensionManager.matchByUrl(url)
 
@@ -540,7 +542,8 @@ class BrowserActivity : AppCompatActivity() {
     private fun updateStatusBar() {
         val lockdown = policyManager.currentPolicy.lockdownEnabled
         val owner = DeviceOwnerHelper.getStatusSummary(this)
-        val anyExt = ExtensionManager.isAllowAny(this) || policyManager.currentPolicy.allowAnyExtension
+        val anyExt = ExtensionManager.isAllowAny(this) || BuildConfig.ADULT_BUILD ||
+            policyManager.currentPolicy.allowAnyExtension
         val extCount = ExtensionManager.enabledEntries(this).size
         statusBar.text = buildString {
             append(if (lockdown) "LOCKDOWN • " else "Aegis • ")

@@ -502,6 +502,50 @@ class BrowserActivity : AppCompatActivity() {
         androidx.core.widget.ImageViewCompat.setImageTintList(securityIcon, tint)
     }
 
+
+    private fun hideWarning() {
+        if (!::engineContainer.isInitialized) return
+        val tagged = engineContainer.findViewWithTag<View>("error_overlay")
+        if (tagged != null) engineContainer.removeView(tagged)
+    }
+
+    private fun showWarning(
+        kind: ErrorOverlay.Kind,
+        url: String,
+        detail: String?,
+        onRetry: (() -> Unit)? = null,
+        onContinue: (() -> Unit)? = null,
+        onCancelSsl: (() -> Unit)? = null
+    ) {
+        if (!::engineContainer.isInitialized) return
+        hideWarning()
+        val overlay = ErrorOverlay.build(
+            this,
+            kind,
+            url,
+            detail,
+            onBack = {
+                hideWarning()
+                onCancelSsl?.invoke()
+                tabManager.activeTab?.engine?.goBack()
+            },
+            onRetry = {
+                hideWarning()
+                onRetry?.invoke()
+            },
+            onContinue = onContinue
+        )
+        overlay.tag = "error_overlay"
+        engineContainer.addView(
+            overlay,
+            android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        overlay.bringToFront()
+    }
+
     private fun showActiveTab() {
         engineContainer.removeAllViews()
         val tab = tabManager.activeTab ?: return
@@ -574,11 +618,34 @@ class BrowserActivity : AppCompatActivity() {
             }
 
             override fun onReceivedError(url: String?, errorDescription: String?) {
-                Toast.makeText(
-                    this@BrowserActivity,
-                    "Page error on ${tab.engineType.name}. Tap engine badge to switch.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                val desc = errorDescription.orEmpty()
+                val kind = if (desc.startsWith("NO_INTERNET")) ErrorOverlay.Kind.NO_INTERNET else ErrorOverlay.Kind.GENERIC
+                val target = url ?: tab.url
+                showWarning(
+                    kind,
+                    target,
+                    desc.removePrefix("NO_INTERNET:"),
+                    onRetry = { loadInActiveTab(target) }
+                )
+            }
+
+            override fun onSslError(url: String, detail: String?, proceed: () -> Unit, cancel: () -> Unit) {
+                val host = SiteWarnings.hostOf(url)
+                if (host.isNotBlank() && SiteWarnings.allowSsl(this@BrowserActivity, host)) {
+                    proceed()
+                    return
+                }
+                showWarning(
+                    ErrorOverlay.Kind.CERT,
+                    url,
+                    detail,
+                    onContinue = {
+                        if (host.isNotBlank()) SiteWarnings.rememberSsl(this@BrowserActivity, host)
+                        hideWarning()
+                        proceed()
+                    },
+                    onCancelSsl = { cancel() }
+                )
             }
 
             override fun shouldOverrideUrlLoading(url: String): Boolean {
@@ -631,6 +698,27 @@ class BrowserActivity : AppCompatActivity() {
             showActiveTab()
         }
 
+        if (url.startsWith("http://", ignoreCase = true)) {
+            val host = SiteWarnings.hostOf(url)
+            if (host.isNotBlank() && !SiteWarnings.allowHttp(this, host)) {
+                showWarning(
+                    ErrorOverlay.Kind.NOT_SECURE,
+                    url,
+                    null,
+                    onContinue = {
+                        SiteWarnings.rememberHttp(this, host)
+                        hideWarning()
+                        tabManager.activeTab?.engine?.loadUrl(url)
+                        updateSecurityIcon(url)
+                    }
+                )
+                omnibox.setText(url)
+                updateSecurityIcon(url)
+                return
+            }
+        }
+
+        hideWarning()
         tab.url = url
         tab.engine?.loadUrl(url)
         omnibox.setText(url)

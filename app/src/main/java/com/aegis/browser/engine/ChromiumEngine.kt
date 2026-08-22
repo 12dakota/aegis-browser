@@ -106,11 +106,34 @@ class ChromiumEngine(context: Context) : BrowserEngine {
                 error: android.webkit.WebResourceError?
             ) {
                 if (request?.isForMainFrame == true) {
-                    navigationListener?.onReceivedError(
-                        request.url?.toString(),
-                        error?.description?.toString()
-                    )
+                    val code = error?.errorCode ?: 0
+                    val desc = when (code) {
+                        android.webkit.WebViewClient.ERROR_HOST_LOOKUP,
+                        android.webkit.WebViewClient.ERROR_CONNECT,
+                        android.webkit.WebViewClient.ERROR_TIMEOUT,
+                        android.webkit.WebViewClient.ERROR_IO,
+                        android.webkit.WebViewClient.ERROR_PROXY_AUTHENTICATION,
+                        -6, -2 -> "NO_INTERNET:" + (error?.description?.toString() ?: "offline")
+                        else -> error?.description?.toString()
+                    }
+                    navigationListener?.onReceivedError(request.url?.toString(), desc)
                 }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: android.webkit.SslErrorHandler?,
+                error: android.net.http.SslError?
+            ) {
+                val url = error?.url ?: view?.url.orEmpty()
+                val detail = error?.toString()
+                if (handler == null) return
+                navigationListener?.onSslError(
+                    url,
+                    detail,
+                    { handler.proceed() },
+                    { handler.cancel() }
+                ) ?: handler.cancel()
             }
         }
 

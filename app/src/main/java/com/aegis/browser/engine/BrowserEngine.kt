@@ -58,5 +58,6 @@ interface BrowserEngine {
         fun onReceivedError(url: String?, errorDescription: String?)
         /** Return true to cancel the navigation (used for parental URL blocking) */
         fun shouldOverrideUrlLoading(url: String): Boolean
+        fun onSslError(url: String, detail: String?, proceed: () -> Unit, cancel: () -> Unit) {}
     }
 }

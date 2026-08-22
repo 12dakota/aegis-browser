@@ -8,6 +8,7 @@ import android.view.ViewGroup
  *
  * - ChromiumEngine  → AndroidX WebView (Blink)
  * - GeckoEngine     → Mozilla GeckoView (Gecko)
+ * - WpeEngine       → WPE WebKit (Igalia), bundled AAR
  *
  * The browser picks one engine per navigation (or per tab) using EngineSelector.
  * They are never merged; they simply coexist in the same APK so the app can
@@ -17,7 +18,8 @@ interface BrowserEngine {
 
     enum class Type {
         CHROMIUM,   // Blink / WebView
-        GECKO       // Firefox engine
+        GECKO,      // Firefox engine
+        WEBKIT      // WPE WebKit (bundled)
     }
 
     val type: Type

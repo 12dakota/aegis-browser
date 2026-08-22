@@ -61,10 +61,19 @@ object EngineSelector {
         "aws.amazon.com"
     )
 
+    private val webkitPreferred = setOf(
+        "webkit.org",
+        "wpewebkit.org",
+        "apple.com",
+        "developer.apple.com",
+        "icloud.com"
+    )
+
     enum class Preference {
         AUTO,
         FORCE_CHROMIUM,
-        FORCE_GECKO
+        FORCE_GECKO,
+        FORCE_WEBKIT
     }
 
     @Volatile
@@ -102,7 +111,11 @@ object EngineSelector {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val map = prefs.getString(KEY_DOMAIN_OVERRIDES, "") ?: ""
         val entries = map.split(';').filter { it.isNotBlank() && !it.startsWith("$host=") }.toMutableList()
-        val flag = if (type == BrowserEngine.Type.GECKO) "G" else "C"
+        val flag = when (type) {
+            BrowserEngine.Type.GECKO -> "G"
+            BrowserEngine.Type.WEBKIT -> "W"
+            else -> "C"
+        }
         entries.add("$host=$flag")
         // Cap size
         val trimmed = entries.takeLast(100)
@@ -117,7 +130,11 @@ object EngineSelector {
         for (part in map.split(';')) {
             val kv = part.split('=')
             if (kv.size == 2 && (host == kv[0] || host.endsWith("." + kv[0]))) {
-                return if (kv[1] == "G") BrowserEngine.Type.GECKO else BrowserEngine.Type.CHROMIUM
+                return when (kv[1]) {
+                    "G" -> BrowserEngine.Type.GECKO
+                    "W" -> BrowserEngine.Type.WEBKIT
+                    else -> BrowserEngine.Type.CHROMIUM
+                }
             }
         }
         return null
@@ -127,6 +144,7 @@ object EngineSelector {
         when (currentPreference) {
             Preference.FORCE_CHROMIUM -> return BrowserEngine.Type.CHROMIUM
             Preference.FORCE_GECKO -> return BrowserEngine.Type.GECKO
+            Preference.FORCE_WEBKIT -> return BrowserEngine.Type.WEBKIT
             Preference.AUTO -> { /* continue */ }
         }
 
@@ -151,6 +169,9 @@ object EngineSelector {
         if (geckoPreferred.any { host == it || host.endsWith(".$it") }) {
             return BrowserEngine.Type.GECKO
         }
+        if (webkitPreferred.any { host == it || host.endsWith(".$it") }) {
+            return BrowserEngine.Type.WEBKIT
+        }
         if (chromiumPreferred.any { host == it || host.endsWith(".$it") }) {
             return BrowserEngine.Type.CHROMIUM
         }
@@ -171,18 +192,23 @@ object EngineSelector {
         return when (type) {
             BrowserEngine.Type.CHROMIUM -> ChromiumEngine(context)
             BrowserEngine.Type.GECKO -> GeckoEngine(context)
+            BrowserEngine.Type.WEBKIT -> WpeEngine(context)
         }
     }
 
     fun opposite(type: BrowserEngine.Type): BrowserEngine.Type {
-        return if (type == BrowserEngine.Type.CHROMIUM) BrowserEngine.Type.GECKO
-        else BrowserEngine.Type.CHROMIUM
+        return when (type) {
+            BrowserEngine.Type.CHROMIUM -> BrowserEngine.Type.GECKO
+            BrowserEngine.Type.GECKO -> BrowserEngine.Type.WEBKIT
+            BrowserEngine.Type.WEBKIT -> BrowserEngine.Type.CHROMIUM
+        }
     }
 
     fun label(type: BrowserEngine.Type): String {
         return when (type) {
             BrowserEngine.Type.CHROMIUM -> "C (Blink/Chromium)"
             BrowserEngine.Type.GECKO -> "G (Gecko)"
+            BrowserEngine.Type.WEBKIT -> "W (WebKit/WPE)"
         }
     }
 }

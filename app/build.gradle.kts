@@ -104,6 +104,7 @@ dependencies {
 
     // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
+    implementation("org.wpewebkit.wpeview:wpeview:0.3.3")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

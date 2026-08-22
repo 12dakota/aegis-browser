@@ -357,6 +357,7 @@ class BrowserActivity : AppCompatActivity() {
         engineBadge.text = when (tab.engineType) {
             BrowserEngine.Type.CHROMIUM -> "C"
             BrowserEngine.Type.GECKO -> "G"
+            BrowserEngine.Type.WEBKIT -> "W"
         }
         progressBar.visibility = if (tab.isLoading) View.VISIBLE else View.GONE
         progressBar.progress = tab.progress
@@ -446,7 +447,11 @@ class BrowserActivity : AppCompatActivity() {
         tab.url = url
         tab.engine?.loadUrl(url)
         omnibox.setText(url)
-        engineBadge.text = if (desired == BrowserEngine.Type.CHROMIUM) "C" else "G"
+        engineBadge.text = when (desired) {
+            BrowserEngine.Type.CHROMIUM -> "C"
+            BrowserEngine.Type.GECKO -> "G"
+            BrowserEngine.Type.WEBKIT -> "W"
+        }
         refreshTabStrip()
     }
 
@@ -588,11 +593,12 @@ class BrowserActivity : AppCompatActivity() {
         val items = arrayOf(
             "New tab",
             "Extensions…",
-            "Switch engine (C ↔ G)",
+            "Switch engine (C → G → W)",
             "Close other tabs",
             "Engine preference: Auto",
             "Engine preference: Chromium",
             "Engine preference: Gecko",
+            "Engine preference: WebKit (WPE)",
             "Status / About"
         )
         AlertDialog.Builder(this)
@@ -618,7 +624,11 @@ class BrowserActivity : AppCompatActivity() {
                         EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
                         Toast.makeText(this, "Engine: Gecko only", Toast.LENGTH_SHORT).show()
                     }
-                    7 -> showAbout()
+                    7 -> {
+                        EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT)
+                        Toast.makeText(this, "Engine: WebKit/WPE only", Toast.LENGTH_SHORT).show()
+                    }
+                    8 -> showAbout()
                 }
             }
             .show()

@@ -435,7 +435,7 @@ class BrowserActivity : AppCompatActivity() {
             tab = tabManager.createTab(url)
         }
 
-        val desired = EngineSelector.select(url)
+        val desired = EngineSelector.select(url, this)
         if (tab.engine == null || tab.engineType != desired) {
             tab.engine?.destroy()
             tab.engine = EngineSelector.createEngine(this, desired)
@@ -457,6 +457,7 @@ class BrowserActivity : AppCompatActivity() {
         tab.engine?.destroy()
         tab.engine = EngineSelector.createEngine(this, opposite)
         tab.engineType = opposite
+        EngineSelector.rememberHostEngine(this, url, opposite)
         showActiveTab()
         if (url.isNotBlank() && url != "about:blank") {
             tab.engine?.loadUrl(url)

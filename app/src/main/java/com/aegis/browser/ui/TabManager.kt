@@ -21,7 +21,7 @@ class TabManager(private val context: Context) {
     val count: Int get() = tabs.size
 
     fun createTab(url: String = "https://www.google.com"): Tab {
-        val type = EngineSelector.select(url)
+        val type = EngineSelector.select(url, context)
         val engine = EngineSelector.createEngine(context, type)
         val tab = Tab(
             title = "New Tab",

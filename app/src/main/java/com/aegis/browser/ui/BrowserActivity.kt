@@ -292,6 +292,7 @@ class BrowserActivity : AppCompatActivity() {
         // Chrome Android top chrome is the omnibox only; navigation is the bottom bar.
         toolbar.addView(omniboxContainer)
         toolbar.addView(reloadBtn)
+        toolbar.addView(chromeIconButton(R.drawable.ic_nav_gecko, "Firefox menu") { showFirefoxMenu() })
 
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -953,6 +954,56 @@ class BrowserActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         add("Help & feedback", R.drawable.ic_nav_help) {
+            dlg.dismiss()
+            showAbout()
+        }
+        dlg.show()
+    }
+
+    private fun showFirefoxMenu() {
+        val panel = ChromeUi.popupPanel(this)
+        fun add(title: String, sub: String?, icon: Int, click: () -> Unit) {
+            panel.addView(ChromeUi.navRow(this, title, sub, icon) { click() })
+        }
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(this).setView(panel).create()
+        add("New tab", null, R.drawable.ic_nav_add) {
+            dlg.dismiss()
+            tabManager.createTab("https://www.google.com")
+            loadInActiveTab("https://www.google.com")
+        }
+        add("Add-ons", "Firefox extensions (AMO)", R.drawable.ic_nav_extension) {
+            dlg.dismiss()
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+            showExtensionsMenu()
+        }
+        add("Use Gecko engine", "Switch this tab to Firefox", R.drawable.ic_nav_gecko) {
+            dlg.dismiss()
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO)
+            val tab = tabManager.activeTab
+            val url = tab?.url ?: "https://www.google.com"
+            if (tab != null) {
+                tab.engine?.destroy()
+                tab.engine = EngineSelector.createEngine(this, BrowserEngine.Type.GECKO)
+                tab.engineType = BrowserEngine.Type.GECKO
+                showActiveTab()
+                tab.engine?.loadUrl(url)
+            }
+        }
+        add("Downloads", null, R.drawable.ic_nav_download) {
+            dlg.dismiss()
+            startActivity(android.content.Intent(this, DownloadsActivity::class.java))
+        }
+        add("Desktop site", null, R.drawable.ic_nav_desktop) {
+            val next = !com.aegis.browser.downloads.UserSettings.desktopUa(this)
+            com.aegis.browser.downloads.UserSettings.set(this, com.aegis.browser.downloads.UserSettings.KEY_DESKTOP_UA, next)
+            android.widget.Toast.makeText(this, if (next) "Desktop site on" else "Desktop site off", android.widget.Toast.LENGTH_SHORT).show()
+            dlg.dismiss()
+        }
+        add("Settings", null, R.drawable.ic_nav_settings) {
+            dlg.dismiss()
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+        }
+        add("Help", null, R.drawable.ic_nav_help) {
             dlg.dismiss()
             showAbout()
         }

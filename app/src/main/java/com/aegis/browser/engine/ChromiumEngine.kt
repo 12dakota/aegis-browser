@@ -188,7 +188,7 @@ class ChromiumEngine(context: Context) : BrowserEngine {
                 }
             }
         }
-        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+        webView.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
             override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu): Boolean {
                 menu.add(0, 11, 0, "Copy")
                 menu.add(0, 12, 1, "Search")
@@ -208,7 +208,7 @@ class ChromiumEngine(context: Context) : BrowserEngine {
                 return true
             }
             override fun onDestroyActionMode(mode: android.view.ActionMode) {}
-        }
+        })
     }
 
     override fun getView(): View = webView

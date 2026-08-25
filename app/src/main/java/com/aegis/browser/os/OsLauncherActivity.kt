@@ -6,9 +6,12 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -23,20 +26,21 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Chrome OS–style tablet home: wallpaper desk + bottom shelf with pinned apps / PWAs.
+ * Chrome OS–style tablet home: desk + bottom shelf + scrollable All Apps drawer.
  */
 class OsLauncherActivity : AppCompatActivity() {
 
+    private lateinit var root: FrameLayout
     private lateinit var shelfApps: LinearLayout
     private lateinit var statusLine: TextView
+    private var drawer: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = FrameLayout(this).apply {
+        root = FrameLayout(this).apply {
             setBackgroundColor(Color.parseColor("#1B1B1F"))
         }
 
-        // Desktop / wallpaper area
         val desk = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -47,7 +51,11 @@ class OsLauncherActivity : AppCompatActivity() {
             setPadding(0, 0, 0, ChromeUi.dp(this@OsLauncherActivity, 88))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor("#202124"), Color.parseColor("#303134"), Color.parseColor("#1A73E8"))
+                intArrayOf(
+                    Color.parseColor("#202124"),
+                    Color.parseColor("#303134"),
+                    Color.parseColor("#1A73E8")
+                )
             )
         }
         desk.addView(TextView(this).apply {
@@ -73,15 +81,19 @@ class OsLauncherActivity : AppCompatActivity() {
         }
         desk.addView(statusLine)
         desk.addView(TextView(this).apply {
-            text = "Search or type a URL in Browser · Install sites as apps from ⋮"
+            text = "Tap ⊞ All apps on the shelf to open installed apps"
             textSize = 13f
             setTextColor(Color.parseColor("#9AA0A6"))
             gravity = Gravity.CENTER
-            setPadding(ChromeUi.dp(this@OsLauncherActivity, 24), ChromeUi.dp(this@OsLauncherActivity, 12), ChromeUi.dp(this@OsLauncherActivity, 24), 0)
+            setPadding(
+                ChromeUi.dp(this@OsLauncherActivity, 24),
+                ChromeUi.dp(this@OsLauncherActivity, 12),
+                ChromeUi.dp(this@OsLauncherActivity, 24),
+                0
+            )
         })
         root.addView(desk)
 
-        // Bottom shelf (Chrome OS tablet style)
         val shelf = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -99,7 +111,6 @@ class OsLauncherActivity : AppCompatActivity() {
                 Gravity.BOTTOM
             )
         }
-
         val scroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
@@ -110,11 +121,10 @@ class OsLauncherActivity : AppCompatActivity() {
         }
         scroll.addView(shelfApps)
         shelf.addView(scroll)
-
-        // System tray end of shelf
+        shelf.addView(shelfIcon("⊞", "All apps") { openAppDrawer() })
         shelf.addView(shelfIcon("⋮", "More") { showMoreMenu() })
-
         root.addView(shelf)
+
         setContentView(root)
         rebuildShelf()
     }
@@ -129,9 +139,16 @@ class OsLauncherActivity : AppCompatActivity() {
         rebuildShelf()
     }
 
+    override fun onBackPressed() {
+        if (drawer != null) {
+            closeAppDrawer()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
     private fun rebuildShelf() {
         shelfApps.removeAllViews()
-        // Built-in system apps
         shelfApps.addView(shelfIcon("🌐", "Browser") {
             startActivity(Intent(this, BrowserActivity::class.java))
         })
@@ -144,10 +161,8 @@ class OsLauncherActivity : AppCompatActivity() {
         shelfApps.addView(shelfIcon("🔧", "Browser prefs") {
             startActivity(Intent(this, SettingsActivity::class.java))
         })
-        // Installed PWAs
         PwaStore.list(this).forEach { app ->
-            val label = app.name.take(10)
-            val chip = shelfIcon(label.take(1).uppercase(), app.name) {
+            val chip = shelfIcon(app.name.take(1).uppercase(), app.name) {
                 startActivity(
                     Intent(this, BrowserActivity::class.java).apply {
                         putExtra(BrowserActivity.EXTRA_START_URL, app.url)
@@ -176,14 +191,138 @@ class OsLauncherActivity : AppCompatActivity() {
         }
     }
 
+    private fun openAppDrawer() {
+        closeAppDrawer()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#F8F9FA"))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            elevation = 24f * resources.displayMetrics.density
+            setPadding(0, ChromeUi.dp(this@OsLauncherActivity, 24), 0, ChromeUi.dp(this@OsLauncherActivity, 80))
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                ChromeUi.dp(this@OsLauncherActivity, 16),
+                ChromeUi.dp(this@OsLauncherActivity, 8),
+                ChromeUi.dp(this@OsLauncherActivity, 16),
+                ChromeUi.dp(this@OsLauncherActivity, 8)
+            )
+        }
+        header.addView(TextView(this).apply {
+            text = "All apps"
+            textSize = 22f
+            setTextColor(Color.parseColor("#202124"))
+            typeface = Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        header.addView(TextView(this).apply {
+            text = "Close"
+            textSize = 15f
+            setTextColor(Color.parseColor("#1A73E8"))
+            setOnClickListener { closeAppDrawer() }
+        })
+        panel.addView(header)
+
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ChromeUi.dp(this@OsLauncherActivity, 8), 0, ChromeUi.dp(this@OsLauncherActivity, 8), 0)
+        }
+        val apps = InstalledAppsHelper.listLaunchable(this)
+        if (apps.isEmpty()) {
+            list.addView(TextView(this).apply {
+                text = "No other launchable apps found on this device."
+                setTextColor(Color.parseColor("#5F6368"))
+                setPadding(32, 48, 32, 32)
+            })
+        } else {
+            apps.forEach { app ->
+                list.addView(appRow(app))
+            }
+        }
+        panel.addView(ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+            addView(list)
+        })
+
+        drawer = panel
+        root.addView(panel)
+    }
+
+    private fun closeAppDrawer() {
+        drawer?.let { root.removeView(it) }
+        drawer = null
+    }
+
+    private fun appRow(app: LaunchableApp): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                ChromeUi.dp(this@OsLauncherActivity, 12),
+                ChromeUi.dp(this@OsLauncherActivity, 10),
+                ChromeUi.dp(this@OsLauncherActivity, 12),
+                ChromeUi.dp(this@OsLauncherActivity, 10)
+            )
+            setOnClickListener {
+                if (InstalledAppsHelper.launch(this@OsLauncherActivity, app)) {
+                    closeAppDrawer()
+                } else {
+                    Toast.makeText(this@OsLauncherActivity, "Could not open ${app.label}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        val iconSize = ChromeUi.dp(this, 40)
+        if (app.icon != null) {
+            row.addView(ImageView(this).apply {
+                setImageDrawable(app.icon)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).also {
+                    it.marginEnd = ChromeUi.dp(this@OsLauncherActivity, 14)
+                }
+            })
+        } else {
+            row.addView(TextView(this).apply {
+                text = app.label.take(1)
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#1A73E8"))
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).also {
+                    it.marginEnd = ChromeUi.dp(this@OsLauncherActivity, 14)
+                }
+            })
+        }
+        row.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            addView(TextView(this@OsLauncherActivity).apply {
+                text = app.label
+                textSize = 16f
+                setTextColor(Color.parseColor("#202124"))
+            })
+            addView(TextView(this@OsLauncherActivity).apply {
+                text = app.packageName
+                textSize = 11f
+                setTextColor(Color.parseColor("#5F6368"))
+            })
+        })
+        return row
+    }
+
     private fun shelfIcon(glyph: String, desc: String, onClick: () -> Unit): TextView {
         return TextView(this).apply {
             text = glyph
             contentDescription = desc
-            textSize = if (glyph.length == 1) 20f else 14f
+            textSize = if (glyph.length <= 2) 20f else 14f
             gravity = Gravity.CENTER
             setTextColor(Color.parseColor("#202124"))
-            setBackgroundColor(Color.parseColor("#FFFFFF"))
             background = GradientDrawable().apply {
                 cornerRadius = 16f * resources.displayMetrics.density
                 setColor(Color.parseColor("#FFFFFF"))
@@ -198,6 +337,7 @@ class OsLauncherActivity : AppCompatActivity() {
 
     private fun showMoreMenu() {
         val items = arrayOf(
+            "All apps",
             "Enable Device Admin",
             "Lock screen",
             "Kiosk mode",
@@ -207,13 +347,14 @@ class OsLauncherActivity : AppCompatActivity() {
             .setTitle("System")
             .setItems(items) { _, which ->
                 when (which) {
-                    0 -> startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))
-                    1 -> {
+                    0 -> openAppDrawer()
+                    1 -> startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))
+                    2 -> {
                         if (!DeviceOwnerHelper.lockNow(this)) {
                             Toast.makeText(this, "Enable Device Admin first", Toast.LENGTH_LONG).show()
                         }
                     }
-                    2 -> {
+                    3 -> {
                         if (DeviceOwnerHelper.enableLockTask(this)) {
                             try {
                                 startLockTask()
@@ -224,7 +365,7 @@ class OsLauncherActivity : AppCompatActivity() {
                             Toast.makeText(this, DeviceOwnerHelper.ownerSetupHint(packageName), Toast.LENGTH_LONG).show()
                         }
                     }
-                    3 -> Toast.makeText(
+                    4 -> Toast.makeText(
                         this,
                         "Provonlong OS ${BuildConfig.VERSION_NAME}\n${packageName}",
                         Toast.LENGTH_LONG

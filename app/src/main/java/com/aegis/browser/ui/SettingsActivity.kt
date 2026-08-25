@@ -106,6 +106,24 @@ class SettingsActivity : AppCompatActivity() {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_WEBKIT); toast("WebKit")
         })
 
+        if (BuildConfig.OS_BUILD) {
+            root.addView(ChromeUi.section(this, "System updates"))
+            root.addView(ChromeUi.navRow(this, "Check for OS updates", "Download and install latest Provonlong OS", R.drawable.ic_nav_download) {
+                toast("Checking for updates…")
+                com.aegis.browser.os.OsUpdateManager.maybeCheck(this, force = true)
+            })
+            root.addView(ChromeUi.navRow(this, "Enrollment guide", "Open provisioning page in browser", R.drawable.ic_nav_help) {
+                com.aegis.browser.os.OsUpdateManager.openEnrollmentPage(this)
+            })
+            root.addView(ChromeUi.navRow(this, "Device settings", "Wi‑Fi, security, lockdown", R.drawable.ic_nav_settings) {
+                startActivity(android.content.Intent(this, com.aegis.browser.os.OsDeviceSettingsActivity::class.java))
+            })
+            root.addView(ChromeUi.navRow(this, "Register this device", "Notify enrollment worker", R.drawable.ic_nav_info) {
+                com.aegis.browser.os.OsUpdateManager.registerDevice(this)
+                toast("Registration sent")
+            })
+        }
+
         val pol = try { AegisApplication.instance.policyManager.currentPolicy } catch (_: Exception) { null }
         root.addView(ChromeUi.section(this, "About Provonlong"))
         root.addView(ChromeUi.navRow(

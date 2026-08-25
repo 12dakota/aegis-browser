@@ -92,7 +92,7 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
         })
 
-        list.addView(ChromeUi.section(this, "Enrollment & updates"))
+        list.addView(ChromeUi.section(this, "System updates"))
         list.addView(ChromeUi.navRow(this, "Enrollment guide", "Cloudflare Workers setup page", R.drawable.ic_nav_help) {
             OsUpdateManager.openEnrollmentPage(this)
         })

@@ -57,6 +57,8 @@ android {
             buildConfigField("boolean", "OS_BUILD", "true")
             buildConfigField("boolean", "REQUIRE_LOGIN", "false")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "true")
+            // Base for OS channel; CI stamps -PosVersionCode=<run_number> for auto-update.
+            versionCode = (project.findProperty("osVersionCode") as String?)?.toIntOrNull() ?: 100
             versionNameSuffix = "-os"
         }
     }

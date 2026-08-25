@@ -27,7 +27,7 @@ jobs:
       - name: Assemble osDebug
         env:
           GRADLE_OPTS: -Xmx4g -Dorg.gradle.daemon=false
-        run: ./gradlew assembleOsDebug --stacktrace --no-daemon
+        run: ./gradlew assembleOsDebug -PosVersionCode=${{ github.run_number }} --stacktrace --no-daemon
       - name: Stage APK
         run: |
           mkdir -p release-assets
@@ -56,6 +56,7 @@ jobs:
             **Asset:** `provonlong-os-debug.apk`
 
             - Package: `com.aegis.browser.os`
+            - versionCode: `${{ github.run_number }}` (auto-update channel)
             - Home launcher + device settings applet
             - Device Admin + Device Owner helpers
             - Same multi-engine browser (Chromium + Gecko + WebKit)

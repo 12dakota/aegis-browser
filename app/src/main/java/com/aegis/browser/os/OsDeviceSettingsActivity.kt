@@ -92,6 +92,19 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
         })
 
+        list.addView(ChromeUi.section(this, "Enrollment & updates"))
+        list.addView(ChromeUi.navRow(this, "Enrollment guide", "Cloudflare Workers setup page", R.drawable.ic_nav_help) {
+            OsUpdateManager.openEnrollmentPage(this)
+        })
+        list.addView(ChromeUi.navRow(this, "Check for OS updates", "Like Chrome OS auto-update channel", R.drawable.ic_nav_download) {
+            Toast.makeText(this, "Checking…", Toast.LENGTH_SHORT).show()
+            OsUpdateManager.maybeCheck(this, force = true)
+        })
+        list.addView(ChromeUi.navRow(this, "Register this device", "Notify enrollment worker", R.drawable.ic_nav_info) {
+            OsUpdateManager.registerDevice(this)
+            Toast.makeText(this, "Registration sent", Toast.LENGTH_SHORT).show()
+        })
+
         list.addView(ChromeUi.section(this, "Security"))
         list.addView(ChromeUi.navRow(this, "Enable Device Admin", "System admin prompt", R.drawable.ic_nav_lock) {
             startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))

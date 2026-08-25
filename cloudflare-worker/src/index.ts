@@ -19,6 +19,12 @@ export interface Env {
   AEGIS_SIGNING_SECRET: string;
   ADMIN_PASSWORD?: string;
   ADMIN_ORIGIN?: string; // e.g. https://aegis-admin.pages.dev
+  /** Optional: GitHub token to read private release assets */
+  GITHUB_TOKEN?: string;
+  /** e.g. 12dakota/aegis-browser */
+  OS_RELEASE_REPO?: string;
+  /** Public download base if assets are mirrored */
+  OS_PUBLIC_APK_URL?: string;
 }
 
 const KNOWN_EXTENSIONS: Record<string, any> = {
@@ -120,6 +126,12 @@ export default {
         const dest = env.ADMIN_ORIGIN || "https://aegis-admin.pages.dev";
         return Response.redirect(dest, 302);
       }
+
+      // Provonlong OS — enrollment + auto-update channel
+      if (path === "/os/latest" && request.method === "GET") return await handleOsLatest(env, request);
+      if (path === "/os/download" && request.method === "GET") return await handleOsDownload(env, request);
+      if (path === "/os/enroll" && request.method === "GET") return handleOsEnrollPage(env, request);
+      if (path === "/os/enroll/register" && request.method === "POST") return await handleOsEnrollRegister(env, request);
 
       return json(env, request, { error: "Not found" }, 404);
     } catch (e: any) {
@@ -632,6 +644,192 @@ function fromFirestoreValue(v: any): any {
   if (v.arrayValue) return (v.arrayValue.values || []).map(fromFirestoreValue);
   if (v.mapValue) return fromFirestoreFields(v.mapValue.fields || {});
   return null;
+}
+
+
+// ---------- Provonlong OS enrollment + updates ----------
+
+async function fetchOsRelease(env: Env): Promise<{
+  tag: string;
+  versionCode: number;
+  versionName: string;
+  apkUrl: string;
+  apkName: string;
+  publishedAt: string;
+  body: string;
+} | null> {
+  if (env.OS_PUBLIC_APK_URL) {
+    return {
+      tag: "public",
+      versionCode: Math.floor(Date.now() / 1000),
+      versionName: "latest",
+      apkUrl: env.OS_PUBLIC_APK_URL,
+      apkName: "provonlong-os-debug.apk",
+      publishedAt: new Date().toISOString(),
+      body: "Public mirrored OS APK",
+    };
+  }
+  const repo = env.OS_RELEASE_REPO || "12dakota/aegis-browser";
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "provonlong-os-worker",
+  };
+  if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
+  const resp = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=30`, { headers });
+  if (!resp.ok) return null;
+  const releases = (await resp.json()) as any[];
+  for (const r of releases) {
+    const tag = String(r.tag_name || "");
+    if (!tag.startsWith("os-")) continue;
+    const assets = r.assets || [];
+    const apk = assets.find((a: any) => String(a.name).includes("os") && String(a.name).endsWith(".apk"));
+    if (!apk) continue;
+    const n = parseInt(tag.replace(/^os-/, ""), 10);
+    const versionCode = Number.isFinite(n) ? n : r.id;
+    // Prefer browser_download_url; private repos need tokenized API asset URL
+    let apkUrl = apk.browser_download_url as string;
+    if (env.GITHUB_TOKEN && apk.url) {
+      // Clients without token use worker /os/download redirect
+      apkUrl = `https://github.com/${repo}/releases/download/${tag}/${apk.name}`;
+    }
+    return {
+      tag,
+      versionCode,
+      versionName: r.name || tag,
+      apkUrl,
+      apkName: apk.name,
+      publishedAt: r.published_at || "",
+      body: r.body || "",
+    };
+  }
+  return null;
+}
+
+async function handleOsLatest(env: Env, request: Request): Promise<Response> {
+  const rel = await fetchOsRelease(env);
+  if (!rel) return json(env, request, { error: "No OS release found" }, 404);
+  return json(env, request, {
+    channel: "os-debug",
+    packageName: "com.aegis.browser.os",
+    tag: rel.tag,
+    versionCode: rel.versionCode,
+    versionName: rel.versionName,
+    apkUrl: rel.apkUrl,
+    apkName: rel.apkName,
+    publishedAt: rel.publishedAt,
+    downloadPath: "/os/download",
+    enrollPath: "/os/enroll",
+    notes: rel.body.slice(0, 2000),
+  });
+}
+
+async function handleOsDownload(env: Env, request: Request): Promise<Response> {
+  const rel = await fetchOsRelease(env);
+  if (!rel) return json(env, request, { error: "No OS release found" }, 404);
+  // If we have a GitHub token and private asset API URL, stream; else redirect
+  const repo = env.OS_RELEASE_REPO || "12dakota/aegis-browser";
+  if (env.GITHUB_TOKEN) {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "provonlong-os-worker",
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+    };
+    const list = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=30`, { headers });
+    if (list.ok) {
+      const releases = (await list.json()) as any[];
+      for (const r of releases) {
+        if (!String(r.tag_name || "").startsWith("os-")) continue;
+        const apk = (r.assets || []).find((a: any) => String(a.name).endsWith(".apk") && String(a.name).includes("os"));
+        if (!apk) continue;
+        const asset = await fetch(apk.url, {
+          headers: {
+            Accept: "application/octet-stream",
+            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+            "User-Agent": "provonlong-os-worker",
+          },
+          redirect: "follow",
+        });
+        if (asset.ok) {
+          return new Response(asset.body, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/vnd.android.package-archive",
+              "Content-Disposition": `attachment; filename="${apk.name}"`,
+              "Cache-Control": "no-store",
+              ...corsHeaders(env, request),
+            },
+          });
+        }
+      }
+    }
+  }
+  return Response.redirect(rel.apkUrl, 302);
+}
+
+function handleOsEnrollPage(env: Env, request: Request): Response {
+  const base = new URL(request.url).origin;
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Provonlong OS enrollment</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:560px;margin:2rem auto;padding:0 1rem;background:#202124;color:#e8eaed}
+a{color:#8ab4f8} .card{background:#303134;border-radius:12px;padding:1.25rem;margin:1rem 0}
+button,a.btn{display:inline-block;background:#1a73e8;color:#fff;border:0;border-radius:8px;padding:.75rem 1.25rem;text-decoration:none;font-weight:600}
+code{background:#0003;padding:.15rem .35rem;border-radius:4px;font-size:.9em}
+ol{line-height:1.6}
+</style></head><body>
+<h1>Provonlong OS setup</h1>
+<p>Enroll a device into OS mode (Chrome OS–style shell + Device Owner).</p>
+<div class="card">
+  <h2>1. Install the OS APK</h2>
+  <p><a class="btn" href="${base}/os/download">Download Provonlong OS</a></p>
+  <p>Or open <code>${base}/os/latest</code> for version metadata.</p>
+</div>
+<div class="card">
+  <h2>2. Set as Home</h2>
+  <ol>
+    <li>Install the APK (allow unknown sources if asked).</li>
+    <li>Open <strong>Provonlong OS</strong> and choose it as the default Home app.</li>
+  </ol>
+</div>
+<div class="card">
+  <h2>3. Device Owner (full lockdown)</h2>
+  <p>On a factory-reset device with only this app installed as admin candidate:</p>
+  <pre>adb shell dpm set-device-owner com.aegis.browser.os/.mdm.AegisDeviceAdminReceiver</pre>
+  <p>Then open Device settings → Apply OS hardening.</p>
+</div>
+<div class="card">
+  <h2>4. Auto-updates</h2>
+  <p>OS builds check <code>${base}/os/latest</code> and install newer APKs automatically (Chrome OS–style update channel).</p>
+</div>
+</body></html>`;
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", ...corsHeaders(env, request) },
+  });
+}
+
+async function handleOsEnrollRegister(env: Env, request: Request): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as {
+    deviceId?: string;
+    model?: string;
+    androidVersion?: string;
+    packageName?: string;
+    versionCode?: number;
+  };
+  const deviceId = body.deviceId || crypto.randomUUID();
+  // Lightweight ack — optional future: store in Firestore
+  return json(env, request, {
+    ok: true,
+    deviceId,
+    enrolledAt: new Date().toISOString(),
+    packageName: body.packageName || "com.aegis.browser.os",
+    next: {
+      setHome: true,
+      deviceOwnerCommand: `adb shell dpm set-device-owner com.aegis.browser.os/.mdm.AegisDeviceAdminReceiver`,
+      updateUrl: "/os/latest",
+    },
+  });
 }
 
 // ---------- Tokens ----------

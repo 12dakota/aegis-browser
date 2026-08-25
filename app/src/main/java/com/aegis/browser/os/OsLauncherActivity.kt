@@ -137,6 +137,8 @@ class OsLauncherActivity : AppCompatActivity() {
         }
         statusLine.text = DeviceOwnerHelper.getStatusSummary(this)
         rebuildShelf()
+        OsUpdateManager.registerDevice(this)
+        OsUpdateManager.maybeCheck(this)
     }
 
     override fun onBackPressed() {

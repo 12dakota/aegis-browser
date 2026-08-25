@@ -1,0 +1,76 @@
+name: Build OS (Provonlong)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-os:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: SDK packages
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          yes | sdkmanager --licenses || true
+      - run: chmod +x ./gradlew
+      - name: Assemble osDebug
+        env:
+          GRADLE_OPTS: -Xmx4g -Dorg.gradle.daemon=false
+        run: ./gradlew assembleOsDebug --stacktrace --no-daemon
+      - name: Stage APK
+        run: |
+          mkdir -p release-assets
+          SRC=$(find app/build/outputs/apk/os -name "*.apk" | head -1)
+          echo "Source: $SRC"
+          test -n "$SRC" -a -f "$SRC"
+          cp "$SRC" release-assets/provonlong-os-debug.apk
+          ls -la release-assets/
+      - uses: actions/upload-artifact@v4
+        if: success()
+        continue-on-error: true
+        with:
+          name: provonlong-os-debug
+          path: release-assets/provonlong-os-debug.apk
+          retention-days: 5
+          if-no-files-found: warn
+      - name: Publish OS build to GitHub Releases
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: os-${{ github.run_number }}
+          name: Provonlong OS (os-debug) #${{ github.run_number }}
+          body: |
+            ## Provonlong OS — Chrome OS–like shell
+
+            **Asset:** `provonlong-os-debug.apk`
+
+            - Package: `com.aegis.browser.os`
+            - Home launcher + device settings applet
+            - Device Admin + Device Owner helpers
+            - Same multi-engine browser (Chromium + Gecko + WebKit)
+            - **Not** the adult or family store builds
+
+            ### Device Owner (after install, factory-reset device recommended)
+            ```
+            adb shell dpm set-device-owner com.aegis.browser.os/.mdm.AegisDeviceAdminReceiver
+            ```
+            Then set **Provonlong OS** as the default Home app.
+
+            Commit: `${{ github.sha }}`
+          files: release-assets/provonlong-os-debug.apk
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

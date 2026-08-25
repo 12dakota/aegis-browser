@@ -110,7 +110,7 @@ class SettingsActivity : AppCompatActivity() {
         root.addView(ChromeUi.section(this, "About Provonlong"))
         root.addView(ChromeUi.navRow(
             this,
-            if (BuildConfig.ADULT_BUILD) "Adult build" else "Family build",
+            when { BuildConfig.OS_BUILD -> "OS build"; BuildConfig.ADULT_BUILD -> "Adult build"; else -> "Family build" },
             "Login required: ${BuildConfig.REQUIRE_LOGIN} · Lockdown: ${pol?.lockdownEnabled}",
             R.drawable.ic_nav_info
         ) { })

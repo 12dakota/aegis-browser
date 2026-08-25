@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- OS flavor: Chrome OS–like home + device control. Adult/family keep Login launcher. -->
+
+    <application>
+        <!-- No cloud login on OS build -->
+        <activity
+            android:name="com.aegis.browser.ui.LoginActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="com.aegis.browser.os.OsLauncherActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.ProvonlongBrowser.NoActionBar"
+            android:excludeFromRecents="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.aegis.browser.os.OsDeviceSettingsActivity"
+            android:exported="false"
+            android:label="Device settings"
+            android:theme="@style/Theme.ProvonlongBrowser.NoActionBar" />
+
+        <activity
+            android:name="com.aegis.browser.ui.BrowserActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:lockTaskMode="if_whitelisted"
+            tools:node="merge" />
+    </application>
+</manifest>

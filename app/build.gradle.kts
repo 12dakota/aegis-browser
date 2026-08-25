@@ -18,6 +18,7 @@ android {
         buildConfigField("boolean", "ADULT_BUILD", "false")
         buildConfigField("boolean", "REQUIRE_LOGIN", "true")
         buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
+        buildConfigField("boolean", "OS_BUILD", "false")
         // Set -Paegis.bundledChromium=true after packaging Content Shell natives
         buildConfigField(
             "boolean",
@@ -35,6 +36,7 @@ android {
             buildConfigField("boolean", "ADULT_BUILD", "false")
             buildConfigField("boolean", "REQUIRE_LOGIN", "true")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
+            buildConfigField("boolean", "OS_BUILD", "false")
             versionNameSuffix = "-family"
         }
         create("adult") {
@@ -44,7 +46,18 @@ android {
             buildConfigField("boolean", "ADULT_BUILD", "true")
             buildConfigField("boolean", "REQUIRE_LOGIN", "false")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "true")
+            buildConfigField("boolean", "OS_BUILD", "false")
             versionNameSuffix = "-adult"
+        }
+        create("os") {
+            dimension = "audience"
+            applicationId = "com.aegis.browser.os"
+            resValue("string", "app_name", "Provonlong OS")
+            buildConfigField("boolean", "ADULT_BUILD", "true")
+            buildConfigField("boolean", "OS_BUILD", "true")
+            buildConfigField("boolean", "REQUIRE_LOGIN", "false")
+            buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "true")
+            versionNameSuffix = "-os"
         }
     }
 

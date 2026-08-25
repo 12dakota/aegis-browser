@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-policies>
-        <!-- Policies useful when the app is set as Device Owner / Profile Owner by MDM -->
         <limit-password />
         <watch-login />
         <reset-password />
@@ -10,6 +9,6 @@
         <expire-password />
         <encrypted-storage />
         <disable-camera />
-        <!-- Proxy & network related (used in combination with DevicePolicyManager.setGlobalProxy) -->
+        <disable-keyguard-features />
     </uses-policies>
 </device-admin>

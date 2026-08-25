@@ -3,27 +3,31 @@ package com.aegis.browser.mdm
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
-import android.os.Build
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import com.aegis.browser.proxy.PacProxyManager
 
 /**
- * Helpers for when Aegis Browser is Device Owner or Profile Owner (set by MDM).
+ * Device Admin / Device Owner helpers for Provonlong OS and managed builds.
  *
- * The strongest proxy enforcement is applying the Cloudflare Gateway PAC
- * as the system-wide proxy via DevicePolicyManager.
+ * Device Owner is set externally (adb / MDM):
+ *   adb shell dpm set-device-owner com.aegis.browser.os/.mdm.AegisDeviceAdminReceiver
  */
 object DeviceOwnerHelper {
 
-    private const val TAG = "AegisDeviceOwner"
+    private const val TAG = "ProvonlongDO"
 
-    fun getDevicePolicyManager(context: Context): DevicePolicyManager? {
-        return context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
-    }
+    fun getDevicePolicyManager(context: Context): DevicePolicyManager? =
+        context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
 
-    fun getAdminComponent(context: Context): ComponentName {
-        return ComponentName(context, AegisDeviceAdminReceiver::class.java)
+    fun getAdminComponent(context: Context): ComponentName =
+        ComponentName(context, AegisDeviceAdminReceiver::class.java)
+
+    fun isAdminActive(context: Context): Boolean {
+        val dpm = getDevicePolicyManager(context) ?: return false
+        return dpm.isAdminActive(getAdminComponent(context))
     }
 
     fun isDeviceOwner(context: Context): Boolean {
@@ -38,40 +42,85 @@ object DeviceOwnerHelper {
 
     fun isManaged(context: Context): Boolean = isDeviceOwner(context) || isProfileOwner(context)
 
-    /**
-     * Apply the Cloudflare Gateway PAC (or policy-provided PAC URL) as the
-     * global proxy when we have Device/Profile Owner privileges.
-     *
-     * Returns true if the system proxy was successfully set.
-     */
+    /** Opens the system prompt to activate Device Admin (not full Device Owner). */
+    fun requestDeviceAdmin(context: Context): Intent {
+        return Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, getAdminComponent(context))
+            putExtra(
+                DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Provonlong OS needs device admin to lock the home screen, apply network policy, and manage this device like a kiosk."
+            )
+        }
+    }
+
+    fun lockNow(context: Context): Boolean {
+        if (!isAdminActive(context)) return false
+        return try {
+            getDevicePolicyManager(context)?.lockNow()
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "lockNow failed", e)
+            false
+        }
+    }
+
+    /** Allow this package to pin / lock-task (kiosk) when Device Owner. */
+    fun enableLockTask(context: Context): Boolean {
+        if (!isDeviceOwner(context)) return false
+        val dpm = getDevicePolicyManager(context) ?: return false
+        val admin = getAdminComponent(context)
+        return try {
+            dpm.setLockTaskPackages(admin, arrayOf(context.packageName))
+            if (Build.VERSION.SDK_INT >= 28) {
+                dpm.setLockTaskFeatures(
+                    admin,
+                    DevicePolicyManager.LOCK_TASK_FEATURE_NONE
+                )
+            }
+            Log.i(TAG, "Lock task packages set for ${context.packageName}")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "enableLockTask failed", e)
+            false
+        }
+    }
+
+    fun setKeyguardDisabled(context: Context, disabled: Boolean): Boolean {
+        if (!isDeviceOwner(context)) return false
+        return try {
+            getDevicePolicyManager(context)?.setKeyguardDisabled(getAdminComponent(context), disabled) == true
+        } catch (e: Exception) {
+            Log.w(TAG, "setKeyguardDisabled", e)
+            false
+        }
+    }
+
+    fun setStatusBarDisabled(context: Context, disabled: Boolean): Boolean {
+        if (!isDeviceOwner(context) || Build.VERSION.SDK_INT < 28) return false
+        return try {
+            getDevicePolicyManager(context)?.setStatusBarDisabled(getAdminComponent(context), disabled) == true
+        } catch (e: Exception) {
+            Log.w(TAG, "setStatusBarDisabled", e)
+            false
+        }
+    }
+
     fun applyGlobalPac(context: Context, pacUrl: String = PacProxyManager.DEFAULT_PAC_URL): Boolean {
         if (!isManaged(context)) {
             Log.i(TAG, "Not Device/Profile Owner – skipping global PAC")
             return false
         }
-
         val dpm = getDevicePolicyManager(context) ?: return false
         val admin = getAdminComponent(context)
-
         return try {
-            // setGlobalProxy is available when the app is Device Owner.
-            // PAC URL form is supported on modern Android.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                // Host/port empty + exclusionList empty → use PAC
-                // Some versions accept the PAC URL via the proxy host field in a specific way;
-                // the clean modern approach is often through Wifi or a dedicated API.
-                // For broadest compatibility we set the PAC via the recommended path.
-                dpm.setRecommendedGlobalProxy(
-                    admin,
-                    android.net.ProxyInfo.buildPacProxy(Uri.parse(pacUrl))
-                )
-                Log.i(TAG, "Global PAC applied via DevicePolicyManager: $pacUrl")
-                true
-            } else {
-                false
-            }
+            dpm.setRecommendedGlobalProxy(
+                admin,
+                android.net.ProxyInfo.buildPacProxy(Uri.parse(pacUrl))
+            )
+            Log.i(TAG, "Global PAC applied: $pacUrl")
+            true
         } catch (e: SecurityException) {
-            Log.w(TAG, "SecurityException setting global PAC – check Device Owner status", e)
+            Log.w(TAG, "SecurityException setting global PAC", e)
             false
         } catch (e: Exception) {
             Log.w(TAG, "Failed to set global PAC", e)
@@ -79,16 +128,12 @@ object DeviceOwnerHelper {
         }
     }
 
-    /**
-     * Clear any global proxy we previously set.
-     */
     fun clearGlobalProxy(context: Context): Boolean {
         if (!isManaged(context)) return false
         val dpm = getDevicePolicyManager(context) ?: return false
         val admin = getAdminComponent(context)
         return try {
             dpm.setRecommendedGlobalProxy(admin, null)
-            Log.i(TAG, "Global proxy cleared")
             true
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear global proxy", e)
@@ -96,11 +141,13 @@ object DeviceOwnerHelper {
         }
     }
 
-    fun getStatusSummary(context: Context): String {
-        return when {
-            isDeviceOwner(context) -> "Device Owner – full lockdown capable"
-            isProfileOwner(context) -> "Profile Owner – work profile controls active"
-            else -> "Standard app – use MDM App Config + FCM for policy"
-        }
+    fun getStatusSummary(context: Context): String = when {
+        isDeviceOwner(context) -> "Device Owner — full lockdown capable"
+        isProfileOwner(context) -> "Profile Owner — work profile controls active"
+        isAdminActive(context) -> "Device Admin active — lock/wipe available"
+        else -> "Not managed — activate Device Admin or set Device Owner via adb/MDM"
     }
+
+    fun ownerSetupHint(packageName: String): String =
+        "adb shell dpm set-device-owner $packageName/.mdm.AegisDeviceAdminReceiver"
 }

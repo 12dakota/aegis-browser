@@ -15,12 +15,18 @@ import com.aegis.browser.ui.ChromeUi
 import com.aegis.browser.ui.MaterialPalette
 
 /**
- * Device settings applet — system intents + Provonlong lockdown controls.
+ * Device settings applet — system intents + password-gated lockdown controls.
+ * Status bar / notification shade stay enabled on purpose.
  */
 class OsDeviceSettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DeviceOwnerHelper.ensureStatusBarEnabled(this)
+        if (DeviceOwnerHelper.isDeviceOwner(this)) {
+            DeviceOwnerHelper.setUninstallBlocked(this, true)
+        }
+
         val surface = MaterialPalette.surface(this)
         val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -28,7 +34,12 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
         }
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(ChromeUi.dp(this@OsDeviceSettingsActivity, 8), ChromeUi.dp(this@OsDeviceSettingsActivity, 12), ChromeUi.dp(this@OsDeviceSettingsActivity, 8), ChromeUi.dp(this@OsDeviceSettingsActivity, 12))
+            setPadding(
+                ChromeUi.dp(this@OsDeviceSettingsActivity, 8),
+                ChromeUi.dp(this@OsDeviceSettingsActivity, 12),
+                ChromeUi.dp(this@OsDeviceSettingsActivity, 8),
+                ChromeUi.dp(this@OsDeviceSettingsActivity, 12)
+            )
         }
         bar.addView(TextView(this).apply {
             text = "←  Device settings"
@@ -41,22 +52,36 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         list.addView(ChromeUi.section(this, "Status"))
-        list.addView(ChromeUi.navRow(this, "Management", DeviceOwnerHelper.getStatusSummary(this), R.drawable.ic_nav_info) {})
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Management",
+                DeviceOwnerHelper.getStatusSummary(this),
+                R.drawable.ic_nav_info
+            ) {}
+        )
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Notification shade",
+                "Always available — pull down for Wi‑Fi & alerts",
+                R.drawable.ic_nav_info
+            ) {
+                DeviceOwnerHelper.ensureStatusBarEnabled(this)
+                Toast.makeText(this, "Status bar left enabled", Toast.LENGTH_SHORT).show()
+            }
+        )
 
         list.addView(ChromeUi.section(this, "Network"))
-        list.addView(ChromeUi.navRow(this, "Wi‑Fi", "Open system Wi‑Fi settings", R.drawable.ic_nav_settings) {
+        list.addView(ChromeUi.navRow(this, "Wi‑Fi", "System Wi‑Fi (also via shade)", R.drawable.ic_nav_settings) {
             startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
         })
-        list.addView(ChromeUi.navRow(this, "Internet", "Open system network settings", R.drawable.ic_nav_settings) {
+        list.addView(ChromeUi.navRow(this, "Internet", "System network settings", R.drawable.ic_nav_settings) {
             startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
         })
         list.addView(ChromeUi.navRow(this, "Apply Gateway PAC", "Device Owner global proxy", R.drawable.ic_nav_lock) {
             val ok = DeviceOwnerHelper.applyGlobalPac(this, PacProxyManager.DEFAULT_PAC_URL)
             Toast.makeText(this, if (ok) "PAC applied" else "Need Device/Profile Owner", Toast.LENGTH_LONG).show()
-        })
-        list.addView(ChromeUi.navRow(this, "Clear global proxy", null, R.drawable.ic_nav_unlock) {
-            val ok = DeviceOwnerHelper.clearGlobalProxy(this)
-            Toast.makeText(this, if (ok) "Proxy cleared" else "Not managed", Toast.LENGTH_SHORT).show()
         })
 
         list.addView(ChromeUi.section(this, "Display & sound"))
@@ -67,7 +92,7 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
         })
 
-        list.addView(ChromeUi.section(this, "Security & lockdown"))
+        list.addView(ChromeUi.section(this, "Security"))
         list.addView(ChromeUi.navRow(this, "Enable Device Admin", "System admin prompt", R.drawable.ic_nav_lock) {
             startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))
         })
@@ -78,25 +103,72 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         })
-        list.addView(ChromeUi.navRow(this, "Enable kiosk packages", "Device Owner lock-task", R.drawable.ic_nav_gecko) {
-            val ok = DeviceOwnerHelper.enableLockTask(this)
+        list.addView(ChromeUi.navRow(this, "Apply OS hardening", "Block uninstall · keep status bar", R.drawable.ic_nav_lock) {
+            DeviceOwnerHelper.applyDefaultOsHardening(this)
             Toast.makeText(
                 this,
-                if (ok) "Lock-task packages set" else DeviceOwnerHelper.ownerSetupHint(packageName),
+                if (DeviceOwnerHelper.isDeviceOwner(this)) "Hardening applied"
+                else DeviceOwnerHelper.ownerSetupHint(packageName),
                 Toast.LENGTH_LONG
             ).show()
-        })
-        list.addView(ChromeUi.navRow(this, "Disable status bar", "Device Owner only", R.drawable.ic_nav_info) {
-            val ok = DeviceOwnerHelper.setStatusBarDisabled(this, true)
-            Toast.makeText(this, if (ok) "Status bar disabled" else "Need Device Owner", Toast.LENGTH_SHORT).show()
-        })
-        list.addView(ChromeUi.navRow(this, "Enable status bar", null, R.drawable.ic_nav_info) {
-            DeviceOwnerHelper.setStatusBarDisabled(this, false)
-            Toast.makeText(this, "Requested status bar on", Toast.LENGTH_SHORT).show()
         })
         list.addView(ChromeUi.navRow(this, "Security settings", "System security UI", R.drawable.ic_nav_settings) {
             startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
         })
+
+        list.addView(ChromeUi.section(this, "Protected (admin password)"))
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Allow uninstall of Provonlong OS",
+                "Requires admin password",
+                R.drawable.ic_nav_unlock
+            ) {
+                OsAdminGate.challenge(this, "Allow uninstall") {
+                    val ok = DeviceOwnerHelper.setUninstallBlocked(this, false)
+                    Toast.makeText(
+                        this,
+                        if (ok) "Uninstall allowed"
+                        else "Not Device Owner or failed",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        )
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Clear global proxy",
+                "Requires admin password",
+                R.drawable.ic_nav_unlock
+            ) {
+                OsAdminGate.challenge(this, "Clear proxy") {
+                    val ok = DeviceOwnerHelper.clearGlobalProxy(this)
+                    Toast.makeText(this, if (ok) "Proxy cleared" else "Not managed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Show Device Owner removal steps",
+                "Requires admin password",
+                R.drawable.ic_nav_help
+            ) {
+                OsAdminGate.challenge(this, "Removal instructions") {
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Remove Device Owner")
+                        .setMessage(
+                            "1. Allow uninstall (above) with admin password\n" +
+                                "2. adb shell dpm remove-active-admin $packageName/.mdm.AegisDeviceAdminReceiver\n" +
+                                "   or factory reset the device\n\n" +
+                                "Sample admin password is only for development builds."
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        )
 
         list.addView(ChromeUi.section(this, "Apps & date"))
         list.addView(ChromeUi.navRow(this, "Apps", null, R.drawable.ic_nav_extension) {

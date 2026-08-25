@@ -151,6 +151,9 @@ class OsLauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh status text if we recreated — full recreate is fine on next open
+        DeviceOwnerHelper.ensureStatusBarEnabled(this)
+        if (DeviceOwnerHelper.isDeviceOwner(this)) {
+            DeviceOwnerHelper.applyDefaultOsHardening(this)
+        }
     }
 }

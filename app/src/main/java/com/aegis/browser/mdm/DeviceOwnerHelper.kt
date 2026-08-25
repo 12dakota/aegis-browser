@@ -148,6 +148,44 @@ object DeviceOwnerHelper {
         else -> "Not managed — activate Device Admin or set Device Owner via adb/MDM"
     }
 
+
+    /** Block uninstall of this package while Device Owner (prevents casual removal). */
+    fun setUninstallBlocked(context: Context, blocked: Boolean): Boolean {
+        if (!isDeviceOwner(context)) return false
+        return try {
+            getDevicePolicyManager(context)?.setUninstallBlocked(
+                getAdminComponent(context),
+                context.packageName,
+                blocked
+            )
+            Log.i(TAG, "setUninstallBlocked($blocked)")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "setUninstallBlocked", e)
+            false
+        }
+    }
+
+    /** Always keep notification shade usable (Wi‑Fi, notifications). */
+    fun ensureStatusBarEnabled(context: Context): Boolean {
+        if (!isDeviceOwner(context) || Build.VERSION.SDK_INT < 28) return false
+        return try {
+            getDevicePolicyManager(context)?.setStatusBarDisabled(getAdminComponent(context), false) == true
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureStatusBarEnabled", e)
+            false
+        }
+    }
+
+    /** Apply default OS lockdown: uninstall blocked, status bar left on. */
+    fun applyDefaultOsHardening(context: Context) {
+        if (!isDeviceOwner(context)) return
+        setUninstallBlocked(context, true)
+        ensureStatusBarEnabled(context)
+        enableLockTask(context)
+        Log.i(TAG, "Default OS hardening applied (status bar remains enabled)")
+    }
+
     fun ownerSetupHint(packageName: String): String =
         "adb shell dpm set-device-owner $packageName/.mdm.AegisDeviceAdminReceiver"
 }

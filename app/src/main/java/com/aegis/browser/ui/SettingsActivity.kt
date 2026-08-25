@@ -109,8 +109,7 @@ class SettingsActivity : AppCompatActivity() {
         if (BuildConfig.OS_BUILD) {
             root.addView(ChromeUi.section(this, "System updates"))
             root.addView(ChromeUi.navRow(this, "Check for OS updates", "Current: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", R.drawable.ic_nav_download) {
-                toast("Checking for updates…")
-                com.aegis.browser.os.OsUpdateManager.maybeCheck(this, force = true)
+                startActivity(android.content.Intent(this, UpdateScreen::class.java).putExtra(UpdateScreen.EXTRA_AUTO_INSTALL, true))
             })
             root.addView(ChromeUi.navRow(this, "Enrollment guide", "Open provisioning page in browser", R.drawable.ic_nav_help) {
                 com.aegis.browser.os.OsUpdateManager.openEnrollmentPage(this)

@@ -100,8 +100,9 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
                 "Current: ${com.aegis.browser.BuildConfig.VERSION_NAME} (${com.aegis.browser.BuildConfig.VERSION_CODE})",
                 R.drawable.ic_nav_download
             ) {
-                Toast.makeText(this, "Checking for OS updates…", Toast.LENGTH_SHORT).show()
-                OsUpdateManager.maybeCheck(this, force = true)
+                startActivity(android.content.Intent(this, com.aegis.browser.ui.UpdateScreen::class.java).putExtra(
+                    com.aegis.browser.ui.UpdateScreen.EXTRA_AUTO_INSTALL, true
+                ))
             }
         )
         list.addView(ChromeUi.navRow(this, "Enrollment guide", "Cloudflare Workers setup page", R.drawable.ic_nav_help) {

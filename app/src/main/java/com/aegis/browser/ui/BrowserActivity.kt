@@ -128,9 +128,11 @@ class BrowserActivity : AppCompatActivity() {
         if (policyManager.currentPolicy.lockdownEnabled) {
             showLockdownOverlay()
         } else {
-            tabManager.createTab("https://www.google.com")
+            val start = intent.getStringExtra(EXTRA_START_URL)?.takeIf { it.startsWith("http") }
+                ?: "https://www.google.com"
+            tabManager.createTab(start)
             showActiveTab()
-            loadInActiveTab("https://www.google.com")
+            loadInActiveTab(start)
         }
 
         ContextCompat.registerReceiver(
@@ -967,6 +969,10 @@ class BrowserActivity : AppCompatActivity() {
             Toast.makeText(this, if (next) "Desktop site on" else "Desktop site off", Toast.LENGTH_SHORT).show()
             dlg.dismiss()
         }
+        add("Install app", R.drawable.ic_nav_add) {
+            dlg.dismiss()
+            installCurrentAsPwa()
+        }
         add("Settings", R.drawable.ic_nav_settings) {
             dlg.dismiss()
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -1387,6 +1393,47 @@ class BrowserActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    private fun installCurrentAsPwa() {
+        val tab = tabManager.activeTab
+        val url = tab?.url?.takeIf { it.startsWith("http") }
+        if (url.isNullOrBlank()) {
+            Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val name = tab.title?.takeIf { it.isNotBlank() && !it.startsWith("http") }
+            ?: try {
+                android.net.Uri.parse(url).host?.removePrefix("www.") ?: "Web app"
+            } catch (_: Exception) {
+                "Web app"
+            }
+        val ok = com.aegis.browser.os.PwaStore.add(this, name, url)
+        Toast.makeText(
+            this,
+            if (ok) "Installed “$name” — open the OS shelf to launch it"
+            else "Could not install",
+            Toast.LENGTH_LONG
+        ).show()
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
+                if (sm != null && sm.isRequestPinShortcutSupported) {
+                    val shortcut = android.content.pm.ShortcutInfo.Builder(this, "pwa_" + url.hashCode())
+                        .setShortLabel(name.take(20))
+                        .setLongLabel(name)
+                        .setIntent(
+                            Intent(this, BrowserActivity::class.java).apply {
+                                action = Intent.ACTION_VIEW
+                                putExtra(EXTRA_START_URL, url)
+                            }
+                        )
+                        .build()
+                    sm.requestPinShortcut(shortcut, null)
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     override fun onDestroy() {
         try {
             unregisterReceiver(policyReceiver)
@@ -1401,5 +1448,9 @@ class BrowserActivity : AppCompatActivity() {
             it.engine = null
         }
         super.onDestroy()
+    }
+
+    companion object {
+        const val EXTRA_START_URL = "start_url"
     }
 }

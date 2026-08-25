@@ -2,11 +2,13 @@ package com.aegis.browser.os
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
-import android.widget.GridLayout
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -15,138 +17,106 @@ import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.ui.BrowserActivity
 import com.aegis.browser.ui.ChromeUi
 import com.aegis.browser.ui.DownloadsActivity
-import com.aegis.browser.ui.MaterialPalette
 import com.aegis.browser.ui.SettingsActivity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * Chrome OS–style home shelf for the OS flavor.
- * Acts as HOME / LAUNCHER when Provonlong OS is the default home app.
+ * Chrome OS–style tablet home: wallpaper desk + bottom shelf with pinned apps / PWAs.
  */
 class OsLauncherActivity : AppCompatActivity() {
 
+    private lateinit var shelfApps: LinearLayout
+    private lateinit var statusLine: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val surface = MaterialPalette.surface(this)
-        val on = MaterialPalette.onSurface(this)
-        val outline = MaterialPalette.outline(this)
-        val primary = MaterialPalette.primary(this)
-
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#202124"))
-            setPadding(ChromeUi.dp(this@OsLauncherActivity, 24), ChromeUi.dp(this@OsLauncherActivity, 48), ChromeUi.dp(this@OsLauncherActivity, 24), ChromeUi.dp(this@OsLauncherActivity, 24))
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#1B1B1F"))
         }
 
-        root.addView(TextView(this).apply {
-            text = "Provonlong OS"
-            textSize = 28f
+        // Desktop / wallpaper area
+        val desk = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            setPadding(0, 0, 0, ChromeUi.dp(this@OsLauncherActivity, 88))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.parseColor("#202124"), Color.parseColor("#303134"), Color.parseColor("#1A73E8"))
+            )
+        }
+        desk.addView(TextView(this).apply {
+            text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())
+            textSize = 64f
             setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
         })
-        root.addView(TextView(this).apply {
+        desk.addView(TextView(this).apply {
+            text = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())
+            textSize = 18f
+            setTextColor(Color.parseColor("#E8EAED"))
+            gravity = Gravity.CENTER
+            setPadding(0, ChromeUi.dp(this@OsLauncherActivity, 8), 0, 0)
+        })
+        statusLine = TextView(this).apply {
             text = DeviceOwnerHelper.getStatusSummary(this@OsLauncherActivity)
+            textSize = 12f
+            setTextColor(Color.parseColor("#BDC1C6"))
+            gravity = Gravity.CENTER
+            setPadding(0, ChromeUi.dp(this@OsLauncherActivity, 16), 0, 0)
+        }
+        desk.addView(statusLine)
+        desk.addView(TextView(this).apply {
+            text = "Search or type a URL in Browser · Install sites as apps from ⋮"
             textSize = 13f
             setTextColor(Color.parseColor("#9AA0A6"))
-            setPadding(0, ChromeUi.dp(this@OsLauncherActivity, 8), 0, ChromeUi.dp(this@OsLauncherActivity, 24))
+            gravity = Gravity.CENTER
+            setPadding(ChromeUi.dp(this@OsLauncherActivity, 24), ChromeUi.dp(this@OsLauncherActivity, 12), ChromeUi.dp(this@OsLauncherActivity, 24), 0)
         })
+        root.addView(desk)
 
-        val grid = GridLayout(this).apply {
-            columnCount = 2
-            alignmentMode = GridLayout.ALIGN_BOUNDS
-        }
-
-        fun tile(title: String, subtitle: String, onClick: () -> Unit) {
-            val cell = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(ChromeUi.dp(this@OsLauncherActivity, 16), ChromeUi.dp(this@OsLauncherActivity, 16), ChromeUi.dp(this@OsLauncherActivity, 16), ChromeUi.dp(this@OsLauncherActivity, 16))
-                setBackgroundColor(Color.parseColor("#303134"))
-                layoutParams = GridLayout.LayoutParams().apply {
-                    width = 0
-                    height = GridLayout.LayoutParams.WRAP_CONTENT
-                    columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                    setMargins(
-                        ChromeUi.dp(this@OsLauncherActivity, 6),
-                        ChromeUi.dp(this@OsLauncherActivity, 6),
-                        ChromeUi.dp(this@OsLauncherActivity, 6),
-                        ChromeUi.dp(this@OsLauncherActivity, 6)
-                    )
-                }
-                setOnClickListener { onClick() }
-            }
-            cell.addView(TextView(this).apply {
-                text = title
-                textSize = 16f
-                setTextColor(Color.WHITE)
-            })
-            cell.addView(TextView(this).apply {
-                text = subtitle
-                textSize = 12f
-                setTextColor(Color.parseColor("#9AA0A6"))
-            })
-            grid.addView(cell)
+        // Bottom shelf (Chrome OS tablet style)
+        val shelf = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#E8EAED"))
+            elevation = 12f * resources.displayMetrics.density
+            setPadding(
+                ChromeUi.dp(this@OsLauncherActivity, 12),
+                ChromeUi.dp(this@OsLauncherActivity, 8),
+                ChromeUi.dp(this@OsLauncherActivity, 12),
+                ChromeUi.dp(this@OsLauncherActivity, 8)
+            )
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                ChromeUi.dp(this@OsLauncherActivity, 72),
+                Gravity.BOTTOM
+            )
         }
 
-        tile("Browser", "Open the web") {
-            startActivity(Intent(this, BrowserActivity::class.java))
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         }
-        tile("Device settings", "Wi‑Fi, display, security, lockdown") {
-            startActivity(Intent(this, OsDeviceSettingsActivity::class.java))
+        shelfApps = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        tile("Downloads", "Files on this device") {
-            startActivity(Intent(this, DownloadsActivity::class.java))
-        }
-        tile("Browser settings", "Engines, extensions, privacy") {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-        tile("Enable Device Admin", "Required before Device Owner") {
-            try {
-                startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))
-            } catch (e: Exception) {
-                Toast.makeText(this, e.message ?: "Cannot open admin prompt", Toast.LENGTH_LONG).show()
-            }
-        }
-        tile("Lock screen", "Force lock now") {
-            if (DeviceOwnerHelper.lockNow(this)) {
-                Toast.makeText(this, "Locked", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Enable Device Admin first", Toast.LENGTH_LONG).show()
-            }
-        }
-        tile("Kiosk mode", "Lock task when Device Owner") {
-            if (DeviceOwnerHelper.enableLockTask(this)) {
-                try {
-                    startLockTask()
-                    Toast.makeText(this, "Lock task started", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Lock task: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            } else {
-                Toast.makeText(
-                    this,
-                    "Need Device Owner.\n${DeviceOwnerHelper.ownerSetupHint(packageName)}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-        tile("About", "Build ${BuildConfig.VERSION_NAME}") {
-            Toast.makeText(
-                this,
-                "Provonlong OS\n${DeviceOwnerHelper.getStatusSummary(this)}\n${packageName}",
-                Toast.LENGTH_LONG
-            ).show()
-        }
+        scroll.addView(shelfApps)
+        shelf.addView(scroll)
 
-        root.addView(grid)
-        root.addView(TextView(this).apply {
-            text = "Tip: set this app as Home, then:\n${DeviceOwnerHelper.ownerSetupHint(packageName)}"
-            textSize = 11f
-            setTextColor(Color.parseColor("#5F6368"))
-            setPadding(0, ChromeUi.dp(this@OsLauncherActivity, 24), 0, 0)
-        })
+        // System tray end of shelf
+        shelf.addView(shelfIcon("⋮", "More") { showMoreMenu() })
 
-        setContentView(ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#202124"))
-            addView(root)
-        })
+        root.addView(shelf)
+        setContentView(root)
+        rebuildShelf()
     }
 
     override fun onResume() {
@@ -155,5 +125,112 @@ class OsLauncherActivity : AppCompatActivity() {
         if (DeviceOwnerHelper.isDeviceOwner(this)) {
             DeviceOwnerHelper.applyDefaultOsHardening(this)
         }
+        statusLine.text = DeviceOwnerHelper.getStatusSummary(this)
+        rebuildShelf()
+    }
+
+    private fun rebuildShelf() {
+        shelfApps.removeAllViews()
+        // Built-in system apps
+        shelfApps.addView(shelfIcon("🌐", "Browser") {
+            startActivity(Intent(this, BrowserActivity::class.java))
+        })
+        shelfApps.addView(shelfIcon("⚙", "Settings") {
+            startActivity(Intent(this, OsDeviceSettingsActivity::class.java))
+        })
+        shelfApps.addView(shelfIcon("⬇", "Files") {
+            startActivity(Intent(this, DownloadsActivity::class.java))
+        })
+        shelfApps.addView(shelfIcon("🔧", "Browser prefs") {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        })
+        // Installed PWAs
+        PwaStore.list(this).forEach { app ->
+            val label = app.name.take(10)
+            val chip = shelfIcon(label.take(1).uppercase(), app.name) {
+                startActivity(
+                    Intent(this, BrowserActivity::class.java).apply {
+                        putExtra(BrowserActivity.EXTRA_START_URL, app.url)
+                    }
+                )
+            }
+            chip.setOnLongClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(app.name)
+                    .setItems(arrayOf("Open", "Remove from shelf")) { _, which ->
+                        if (which == 0) {
+                            startActivity(
+                                Intent(this, BrowserActivity::class.java).apply {
+                                    putExtra(BrowserActivity.EXTRA_START_URL, app.url)
+                                }
+                            )
+                        } else {
+                            PwaStore.remove(this, app.id)
+                            rebuildShelf()
+                        }
+                    }
+                    .show()
+                true
+            }
+            shelfApps.addView(chip)
+        }
+    }
+
+    private fun shelfIcon(glyph: String, desc: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = glyph
+            contentDescription = desc
+            textSize = if (glyph.length == 1) 20f else 14f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#202124"))
+            setBackgroundColor(Color.parseColor("#FFFFFF"))
+            background = GradientDrawable().apply {
+                cornerRadius = 16f * resources.displayMetrics.density
+                setColor(Color.parseColor("#FFFFFF"))
+            }
+            val size = ChromeUi.dp(this@OsLauncherActivity, 48)
+            layoutParams = LinearLayout.LayoutParams(size, size).also {
+                it.marginEnd = ChromeUi.dp(this@OsLauncherActivity, 10)
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun showMoreMenu() {
+        val items = arrayOf(
+            "Enable Device Admin",
+            "Lock screen",
+            "Kiosk mode",
+            "About Provonlong OS"
+        )
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("System")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> startActivity(DeviceOwnerHelper.requestDeviceAdmin(this))
+                    1 -> {
+                        if (!DeviceOwnerHelper.lockNow(this)) {
+                            Toast.makeText(this, "Enable Device Admin first", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    2 -> {
+                        if (DeviceOwnerHelper.enableLockTask(this)) {
+                            try {
+                                startLockTask()
+                            } catch (e: Exception) {
+                                Toast.makeText(this, e.message, Toast.LENGTH_LONG).show()
+                            }
+                        } else {
+                            Toast.makeText(this, DeviceOwnerHelper.ownerSetupHint(packageName), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    3 -> Toast.makeText(
+                        this,
+                        "Provonlong OS ${BuildConfig.VERSION_NAME}\n${packageName}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .show()
     }
 }

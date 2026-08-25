@@ -93,12 +93,19 @@ class OsDeviceSettingsActivity : AppCompatActivity() {
         })
 
         list.addView(ChromeUi.section(this, "System updates"))
+        list.addView(
+            ChromeUi.navRow(
+                this,
+                "Check for OS updates",
+                "Current: ${com.aegis.browser.BuildConfig.VERSION_NAME} (${com.aegis.browser.BuildConfig.VERSION_CODE})",
+                R.drawable.ic_nav_download
+            ) {
+                Toast.makeText(this, "Checking for OS updates…", Toast.LENGTH_SHORT).show()
+                OsUpdateManager.maybeCheck(this, force = true)
+            }
+        )
         list.addView(ChromeUi.navRow(this, "Enrollment guide", "Cloudflare Workers setup page", R.drawable.ic_nav_help) {
             OsUpdateManager.openEnrollmentPage(this)
-        })
-        list.addView(ChromeUi.navRow(this, "Check for OS updates", "Like Chrome OS auto-update channel", R.drawable.ic_nav_download) {
-            Toast.makeText(this, "Checking…", Toast.LENGTH_SHORT).show()
-            OsUpdateManager.maybeCheck(this, force = true)
         })
         list.addView(ChromeUi.navRow(this, "Register this device", "Notify enrollment worker", R.drawable.ic_nav_info) {
             OsUpdateManager.registerDevice(this)

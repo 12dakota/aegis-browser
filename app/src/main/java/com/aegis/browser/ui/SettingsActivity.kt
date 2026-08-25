@@ -108,7 +108,7 @@ class SettingsActivity : AppCompatActivity() {
 
         if (BuildConfig.OS_BUILD) {
             root.addView(ChromeUi.section(this, "System updates"))
-            root.addView(ChromeUi.navRow(this, "Check for OS updates", "Download and install latest Provonlong OS", R.drawable.ic_nav_download) {
+            root.addView(ChromeUi.navRow(this, "Check for OS updates", "Current: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", R.drawable.ic_nav_download) {
                 toast("Checking for updates…")
                 com.aegis.browser.os.OsUpdateManager.maybeCheck(this, force = true)
             })

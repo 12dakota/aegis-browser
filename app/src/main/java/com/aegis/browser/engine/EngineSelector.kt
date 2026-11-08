@@ -6,7 +6,7 @@ import android.util.Log
 
 /**
  * Automatic and forced selection between:
- * - CHROMIUM (Blink) — Google Chromium path via System WebView today; pluggable later
+ * - SERVO — Rust-based Servo engine (replaces Blink/WebView)
  * - GECKO — Mozilla GeckoView (WebExtensions / AMO)
  *
  * AUTO mode picks per URL when the user navigates (see BrowserActivity.loadInActiveTab).
@@ -15,7 +15,7 @@ object EngineSelector {
 
     private const val PREFS = "aegis_engine"
     private const val KEY_PREF = "preference"
-    private const val KEY_DOMAIN_OVERRIDES = "domain_overrides" // host=C|G pairs
+    private const val KEY_DOMAIN_OVERRIDES = "domain_overrides" // host=S|G|W pairs
     private const val TAG = "AegisEngineSelector"
 
     /** Sites that work better / need Gecko (extensions store, Mozilla, etc.) */
@@ -33,8 +33,8 @@ object EngineSelector {
         "support.mozilla.org"
     )
 
-    /** Sites that typically prefer Chromium/Blink compatibility */
-    private val chromiumPreferred = setOf(
+    /** Sites that typically prefer Servo (or general web) */
+    private val servoPreferred = setOf(
         "google.com",
         "youtube.com",
         "youtu.be",
@@ -71,7 +71,7 @@ object EngineSelector {
 
     enum class Preference {
         AUTO,
-        FORCE_CHROMIUM,
+        FORCE_SERVO,
         FORCE_GECKO,
         FORCE_WEBKIT
     }
@@ -114,7 +114,7 @@ object EngineSelector {
         val flag = when (type) {
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
-            else -> "C"
+            else -> "S"
         }
         entries.add("$host=$flag")
         // Cap size
@@ -133,7 +133,7 @@ object EngineSelector {
                 return when (kv[1]) {
                     "G" -> BrowserEngine.Type.GECKO
                     "W" -> BrowserEngine.Type.WEBKIT
-                    else -> BrowserEngine.Type.CHROMIUM
+                    else -> BrowserEngine.Type.SERVO
                 }
             }
         }
@@ -142,7 +142,7 @@ object EngineSelector {
 
     fun select(url: String, context: Context? = null): BrowserEngine.Type {
         when (currentPreference) {
-            Preference.FORCE_CHROMIUM -> return BrowserEngine.Type.CHROMIUM
+            Preference.FORCE_SERVO -> return BrowserEngine.Type.SERVO
             Preference.FORCE_GECKO -> return BrowserEngine.Type.GECKO
             Preference.FORCE_WEBKIT -> return BrowserEngine.Type.WEBKIT
             Preference.AUTO -> { /* continue */ }
@@ -152,19 +152,19 @@ object EngineSelector {
         val lower = url.lowercase()
         if (lower.startsWith("moz-extension://")) return BrowserEngine.Type.GECKO
         if (lower.startsWith("chrome-extension://")) {
-            // No real Chrome extension host yet — still route to Chromium path for clarity
-            return BrowserEngine.Type.CHROMIUM
+            // No real Chrome extension host yet — still route to Servo path for clarity
+            return BrowserEngine.Type.SERVO
         }
         if (lower.contains("addons.mozilla.org") || lower.contains("/downloads/") && lower.contains(".xpi")) {
             return BrowserEngine.Type.GECKO
         }
         if (lower.contains("chromewebstore.google.com") || lower.contains("chrome.google.com/webstore")) {
-            return BrowserEngine.Type.CHROMIUM
+            return BrowserEngine.Type.SERVO
         }
 
         learnedEngine(context, url)?.let { return it }
 
-        val host = hostOf(url) ?: return BrowserEngine.Type.CHROMIUM
+        val host = hostOf(url) ?: return BrowserEngine.Type.SERVO
 
         if (geckoPreferred.any { host == it || host.endsWith(".$it") }) {
             return BrowserEngine.Type.GECKO
@@ -172,12 +172,12 @@ object EngineSelector {
         if (webkitPreferred.any { host == it || host.endsWith(".$it") }) {
             return BrowserEngine.Type.WEBKIT
         }
-        if (chromiumPreferred.any { host == it || host.endsWith(".$it") }) {
-            return BrowserEngine.Type.CHROMIUM
+        if (servoPreferred.any { host == it || host.endsWith(".$it") }) {
+            return BrowserEngine.Type.SERVO
         }
 
-        // Default AUTO → Chromium/Blink path (best general web + Google sites)
-        return BrowserEngine.Type.CHROMIUM
+        // Default AUTO → Servo path (best general web + Google sites)
+        return BrowserEngine.Type.SERVO
     }
 
     private fun hostOf(url: String): String? {
@@ -190,7 +190,7 @@ object EngineSelector {
 
     fun createEngine(context: Context, type: BrowserEngine.Type): BrowserEngine {
         return when (type) {
-            BrowserEngine.Type.CHROMIUM -> ChromiumEngine(context)
+            BrowserEngine.Type.SERVO -> ServoEngine(context)
             BrowserEngine.Type.GECKO -> GeckoEngine(context)
             BrowserEngine.Type.WEBKIT -> WpeEngine(context)
         }
@@ -198,15 +198,15 @@ object EngineSelector {
 
     fun opposite(type: BrowserEngine.Type): BrowserEngine.Type {
         return when (type) {
-            BrowserEngine.Type.CHROMIUM -> BrowserEngine.Type.GECKO
+            BrowserEngine.Type.SERVO -> BrowserEngine.Type.GECKO
             BrowserEngine.Type.GECKO -> BrowserEngine.Type.WEBKIT
-            BrowserEngine.Type.WEBKIT -> BrowserEngine.Type.CHROMIUM
+            BrowserEngine.Type.WEBKIT -> BrowserEngine.Type.SERVO
         }
     }
 
     fun label(type: BrowserEngine.Type): String {
         return when (type) {
-            BrowserEngine.Type.CHROMIUM -> "C (Blink/Chromium)"
+            BrowserEngine.Type.SERVO -> "S (Servo)"
             BrowserEngine.Type.GECKO -> "G (Gecko)"
             BrowserEngine.Type.WEBKIT -> "W (WebKit/WPE)"
         }

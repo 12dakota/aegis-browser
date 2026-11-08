@@ -12,7 +12,7 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = 3
-        versionName = "1.2.0-dual-engine"
+        versionName = "1.3.0-servo-gecko-webkit"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "ADULT_BUILD", "false")
@@ -22,7 +22,6 @@ android {
         // Set -Paegis.bundledChromium=true after packaging Content Shell natives
         buildConfigField(
             "boolean",
-            "USE_BUNDLED_CHROMIUM",
             (project.findProperty("aegis.bundledChromium") == "true").toString()
         )
     }
@@ -90,9 +89,7 @@ android {
         buildConfig = true
     }
 
-    // Chromium pak/dat must stay uncompressed when bundled
     androidResources {
-        noCompress += listOf("pak", "dat", "bin")
     }
 
     packaging {
@@ -113,13 +110,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-ktx:1.9.3")
     // Chromium-based WebView helpers (updated by engine-update workflow)
-    implementation("androidx.webkit:webkit:1.12.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
+    implementation(files("libs/servo-aarch64-android.aar"))
     implementation("org.wpewebkit.wpeview:wpeview:0.3.3")
 
     testImplementation("junit:junit:4.13.2")

@@ -4,9 +4,9 @@ import android.view.View
 import android.view.ViewGroup
 
 /**
- * Common interface for the two rendering engines that live side-by-side in Aegis Browser.
+ * Common interface for the rendering engines that live side-by-side in Aegis Browser.
  *
- * - ChromiumEngine  → AndroidX WebView (Blink)
+ * - ServoEngine     → Servo (Rust, replaces Blink)
  * - GeckoEngine     → Mozilla GeckoView (Gecko)
  * - WpeEngine       → WPE WebKit (Igalia), bundled AAR
  *
@@ -17,7 +17,7 @@ import android.view.ViewGroup
 interface BrowserEngine {
 
     enum class Type {
-        CHROMIUM,   // Blink / WebView
+        SERVO,      // Servo (Rust engine, replaces Blink)
         GECKO,      // Firefox engine
         WEBKIT      // WPE WebKit (bundled)
     }

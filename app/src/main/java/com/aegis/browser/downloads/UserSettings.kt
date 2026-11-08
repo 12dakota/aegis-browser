@@ -36,10 +36,10 @@ object UserSettings {
 
     fun engineLabel(ctx: Context): String = EngineSelector.label(
         when (EngineSelector.preference) {
-            EngineSelector.Preference.FORCE_CHROMIUM -> com.aegis.browser.engine.BrowserEngine.Type.CHROMIUM
+            EngineSelector.Preference.FORCE_SERVO -> com.aegis.browser.engine.BrowserEngine.Type.SERVO
             EngineSelector.Preference.FORCE_GECKO -> com.aegis.browser.engine.BrowserEngine.Type.GECKO
             EngineSelector.Preference.FORCE_WEBKIT -> com.aegis.browser.engine.BrowserEngine.Type.WEBKIT
-            else -> com.aegis.browser.engine.BrowserEngine.Type.CHROMIUM
+            else -> com.aegis.browser.engine.BrowserEngine.Type.SERVO
         }
     ) + if (EngineSelector.preference == EngineSelector.Preference.AUTO) " (Auto)" else ""
 }

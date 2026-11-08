@@ -40,7 +40,7 @@ import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.ui.MaterialPalette
-import com.aegis.browser.engine.ChromiumEngine
+import com.aegis.browser.engine.ServoEngine
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore
@@ -566,7 +566,7 @@ class BrowserActivity : AppCompatActivity() {
 
         omnibox.setText(tab.url.takeIf { it != "about:blank" } ?: "")
         engineBadge.text = when (tab.engineType) {
-            BrowserEngine.Type.CHROMIUM -> "C"
+            BrowserEngine.Type.SERVO -> "S"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
         }
@@ -758,7 +758,7 @@ class BrowserActivity : AppCompatActivity() {
         tab.engine?.loadUrl(url)
         omnibox.setText(url)
         engineBadge.text = when (desired) {
-            BrowserEngine.Type.CHROMIUM -> "C"
+            BrowserEngine.Type.SERVO -> "S"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
         }
@@ -1331,7 +1331,7 @@ class BrowserActivity : AppCompatActivity() {
 
     private fun showAbout() {
         val chromium = try {
-            ChromiumEngine.chromiumVersionSummary(this)
+            "Servo (bundled AAR)"
         } catch (_: Exception) {
             "System WebView"
         }

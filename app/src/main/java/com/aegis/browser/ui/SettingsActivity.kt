@@ -96,8 +96,8 @@ class SettingsActivity : AppCompatActivity() {
         root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Blink, Gecko, or WebKit per site", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.AUTO); toast("Auto")
         })
-        root.addView(ChromeUi.navRow(this, "Use Chromium", "System WebView / Blink", R.drawable.ic_nav_engine) {
-            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_CHROMIUM); toast("Chromium")
+        root.addView(ChromeUi.navRow(this, "Use Servo", "System WebView / Blink", R.drawable.ic_nav_engine) {
+            EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_SERVO); toast("Servo")
         })
         root.addView(ChromeUi.navRow(this, "Use Gecko", "Firefox engine + extensions", R.drawable.ic_nav_extension) {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_GECKO); toast("Gecko")
@@ -140,18 +140,23 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun enginePrefLabel() = when (EngineSelector.preference) {
         EngineSelector.Preference.AUTO -> "Auto"
-        EngineSelector.Preference.FORCE_CHROMIUM -> "Chromium"
+        EngineSelector.Preference.FORCE_SERVO -> "Servo"
         EngineSelector.Preference.FORCE_GECKO -> "Gecko"
         EngineSelector.Preference.FORCE_WEBKIT -> "WebKit"
+        EngineSelector.Preference.FORCE_CUSTOM -> "Custom"
     }
 
     private fun cycleEngine() {
         val next = when (EngineSelector.preference) {
-            EngineSelector.Preference.AUTO -> EngineSelector.Preference.FORCE_CHROMIUM
-            EngineSelector.Preference.FORCE_CHROMIUM -> EngineSelector.Preference.FORCE_GECKO
+            EngineSelector.Preference.AUTO -> EngineSelector.Preference.FORCE_SERVO
+            EngineSelector.Preference.FORCE_SERVO -> EngineSelector.Preference.FORCE_GECKO
             EngineSelector.Preference.FORCE_GECKO -> EngineSelector.Preference.FORCE_WEBKIT
-            EngineSelector.Preference.FORCE_WEBKIT -> EngineSelector.Preference.AUTO
+            EngineSelector.Preference.FORCE_WEBKIT -> EngineSelector.Preference.FORCE_CUSTOM
+            EngineSelector.Preference.FORCE_CUSTOM -> EngineSelector.Preference.AUTO
         }
+        EngineSelector.setPreference(this, next)
+        toast(enginePrefLabel())
+    }
         EngineSelector.setPreference(this, next)
         toast(enginePrefLabel())
     }

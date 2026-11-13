@@ -113,13 +113,14 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-ktx:1.9.3")
     // Chromium-based WebView helpers (updated by engine-update workflow)
-    implementation("androidx.webkit:webkit:1.12.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
+    // Servo: place servo-aarch64-android.aar in app/libs/ and uncomment:
+    // implementation(files("libs/servo-aarch64-android.aar"))
     implementation("org.wpewebkit.wpeview:wpeview:0.3.3")
 
     testImplementation("junit:junit:4.13.2")

@@ -1,6 +1,6 @@
 # Provonlong Web Browser (Android)
 
-**Secure dual-engine (Chromium/Blink + Gecko + optional WPE WebKit) browser for family and adult builds.**  
+**Secure multi-engine browser (Servo + Gecko + WebKit + optional custom) for family and adult builds.**  
 Chrome-like shell is our own code. Policy, PAC, auth, downloads, and lockdown are Provonlong-owned.
 
 ## Builds
@@ -14,19 +14,25 @@ Launcher name on both: **Provonlong Web Browser**.
 
 ## Engines
 
-- **C** — System WebView (Blink / Chromium)
-- **G** — GeckoView (extensions via AMO)
+- **S** — Servo (bundled AAR from servo-nightly-builds, experimental)
+- **G** — GeckoView (Mozilla, WebExtensions via AMO)
 - **W** — WPE WebKit (bundled AAR)
+- **X** — Custom (user-imported local APK/DEX engine via Settings)
+
+**No Blink / Chromium.**
 
 ## Features
 
 - Material 3 Expressive (dynamic color)
-- In-app downloads (not system DownloadManager) with background transfer
-- Settings for unmanaged features
+- Chrome-like omnibox, bottom bar, tab switcher
+- In-app downloads with background transfer
+- Settings for engine preference + custom engine import
 - MDM / Device Owner PAC lockdown (family)
 - Cloudflare Worker auth + policy
 
 ## Build
+
+Place `servo-aarch64-android.aar` in `app/libs/` and uncomment the dependency in `app/build.gradle.kts`.
 
 ```bash
 ./gradlew assembleFamilyDebug

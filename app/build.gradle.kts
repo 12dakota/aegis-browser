@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.aegis.browser"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.aegis.browser"

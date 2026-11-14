@@ -103,6 +103,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            pickFirsts += "**/libc++_shared.so"
         }
         resources {
             excludes += setOf("META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/LICENSE.txt")

@@ -126,7 +126,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0")
     implementation("androidx.activity:activity-compose:1.9.3")
     // Servo: place servo-aarch64-android.aar in app/libs/ and uncomment:
-    // implementation(files("libs/servo-aarch64-android.aar"))
+    implementation(files("libs/servo-aarch64-android.aar"))
     implementation("org.wpewebkit.wpeview:wpeview:0.3.3")
 
     testImplementation("junit:junit:4.13.2")

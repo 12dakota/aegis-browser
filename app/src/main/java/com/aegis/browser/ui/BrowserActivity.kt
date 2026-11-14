@@ -566,7 +566,7 @@ class BrowserActivity : AppCompatActivity() {
 
         omnibox.setText(tab.url.takeIf { it != "about:blank" } ?: "")
         engineBadge.text = when (tab.engineType) {
-            BrowserEngine.Type.CHROMIUM -> "C"
+            BrowserEngine.Type.SERVO -> "C"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
         }
@@ -758,7 +758,7 @@ class BrowserActivity : AppCompatActivity() {
         tab.engine?.loadUrl(url)
         omnibox.setText(url)
         engineBadge.text = when (desired) {
-            BrowserEngine.Type.CHROMIUM -> "C"
+            BrowserEngine.Type.SERVO -> "C"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
         }

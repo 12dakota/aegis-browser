@@ -40,16 +40,11 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
 
-        <!-- Login is the launcher — cloud auth first, no Firebase crash path -->
+        <!-- Login activity kept but no longer launcher (login removed) -->
         <activity
             android:name=".ui.LoginActivity"
-            android:exported="true"
-            android:theme="@style/Theme.ProvonlongBrowser.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false"
+            android:theme="@style/Theme.ProvonlongBrowser.NoActionBar" />
 
         <activity
             android:name=".ui.BrowserActivity"
@@ -57,6 +52,10 @@
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

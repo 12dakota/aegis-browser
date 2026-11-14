@@ -568,6 +568,7 @@ class BrowserActivity : AppCompatActivity() {
             BrowserEngine.Type.SERVO -> "C"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
+            BrowserEngine.Type.CUSTOM -> "X"
         }
         progressBar.visibility = if (tab.isLoading) View.VISIBLE else View.GONE
         progressBar.progress = tab.progress
@@ -760,6 +761,7 @@ class BrowserActivity : AppCompatActivity() {
             BrowserEngine.Type.SERVO -> "C"
             BrowserEngine.Type.GECKO -> "G"
             BrowserEngine.Type.WEBKIT -> "W"
+            BrowserEngine.Type.CUSTOM -> "X"
         }
         refreshTabStrip()
     }

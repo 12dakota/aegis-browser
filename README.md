@@ -28,7 +28,7 @@ Launcher name on both: **Provonlong Web Browser**.
 - In-app downloads with background transfer
 - Settings for engine preference + custom engine import
 - MDM / Device Owner PAC lockdown (family)
-- Cloudflare Worker auth + policy
+- Open browsing (login removed); policy/PAC optional
 
 ## Build
 

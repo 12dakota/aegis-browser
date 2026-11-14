@@ -74,17 +74,8 @@ class AegisApplication : Application() {
                     android.util.Log.i(TAG, "Adult/Open: allowAnyExtension forced true")
                 }
                 // Family: cloud policy + PAC. Adult: skip forced Gateway PAC so browsing works offline/normal net.
-                if (BuildConfig.REQUIRE_LOGIN) {
-                    policyManager.refreshPolicies()
-                    pacProxyManager.applyDefaultPac()
-                    val pacUrl = policyManager.currentPolicy.pacUrl
-                        .ifBlank { PacProxyManager.DEFAULT_PAC_URL }
-                    val applied = DeviceOwnerHelper.applyGlobalPac(this@AegisApplication, pacUrl)
-                    Log.i(TAG, "Device Owner: ${DeviceOwnerHelper.getStatusSummary(this@AegisApplication)}")
-                    Log.i(TAG, "Global PAC applied: $applied")
-                } else {
-                    Log.i(TAG, "Adult build: open mode, no forced PAC / login policy")
-                }
+                // Login removed — open mode for all flavors
+                Log.i(TAG, "Open mode: no forced login or Gateway PAC")
             } catch (e: Exception) {
                 Log.w(TAG, "Background policy/PAC refresh failed", e)
             }

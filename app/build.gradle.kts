@@ -17,7 +17,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "ADULT_BUILD", "false")
-        buildConfigField("boolean", "REQUIRE_LOGIN", "true")
+        buildConfigField("boolean", "REQUIRE_LOGIN", "false")
         buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
         buildConfigField("boolean", "OS_BUILD", "false")
         // Set -Paegis.bundledChromium=true after packaging Content Shell natives
@@ -35,7 +35,7 @@ android {
             applicationId = "com.aegis.browser"
             resValue("string", "app_name", "Provonlong Web Browser")
             buildConfigField("boolean", "ADULT_BUILD", "false")
-            buildConfigField("boolean", "REQUIRE_LOGIN", "true")
+            buildConfigField("boolean", "REQUIRE_LOGIN", "false")
             buildConfigField("boolean", "DEFAULT_ALLOW_ANY_EXTENSION", "false")
             buildConfigField("boolean", "OS_BUILD", "false")
             versionNameSuffix = "-family"

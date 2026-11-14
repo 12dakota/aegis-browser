@@ -2,64 +2,56 @@ package com.aegis.browser.engine
 
 import android.content.Context
 import android.view.View
-import androidx.compose.ui.platform.ComposeView
-import org.servo.servoview.Servo
-import org.servo.servoview.ServoNavigator
+import android.widget.FrameLayout
+import android.widget.TextView
+import android.util.Log
 
 /**
- * Built-in Servo engine. Requires servo-aarch64-android.aar (or nightly) in libs/.
- * Experimental: arm64 preferred; history/keyboard support is incomplete.
+ * Stub Servo engine.
+ *
+ * Real integration requires the official servo-aarch64-android.aar
+ * placed in app/libs/ and the dependency uncommented in app/build.gradle.kts.
+ *
+ * This stub keeps the project building until the AAR is available.
  */
 class ServoEngine(context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.SERVO
 
-    private val composeView = ComposeView(context)
-    private val navigator = ServoNavigator()
+    private val container = FrameLayout(context).apply {
+        val label = TextView(context).apply {
+            text = "Servo engine (stub)\nPlace servo-aarch64-android.aar in app/libs/"
+            textSize = 16f
+            setPadding(32, 32, 32, 32)
+        }
+        addView(label)
+    }
+
     private var progressListener: ((Int) -> Unit)? = null
     private var navigationListener: BrowserEngine.NavigationListener? = null
     private var currentUrl: String? = null
 
-    private val client = object : Servo.Client {
-        override fun onLoadStarted(url: String) {
-            currentUrl = url
-            navigationListener?.onPageStarted(url)
-            progressListener?.invoke(10)
-        }
-        override fun onLoadFinished(url: String, success: Boolean) {
-            navigationListener?.onPageFinished(url)
-            progressListener?.invoke(100)
-        }
-        // Add more Client overrides as the AAR exposes them
-    }
-
     init {
-        composeView.setContent {
-            Servo(
-                experimentalModeEnabled = true,
-                args = null,
-                initialUrl = null,
-                logStr = null,
-                client = client,
-                navigator = navigator
-            )
-        }
+        Log.i("ServoEngine", "Using stub ServoEngine — real AAR not present")
     }
 
-    override fun getView(): View = composeView
+    override fun getView(): View = container
+
     override fun loadUrl(url: String) {
         currentUrl = url
-        navigator.loadUrl(url)
         navigationListener?.onPageStarted(url)
+        progressListener?.invoke(100)
+        navigationListener?.onPageFinished(url)
     }
-    override fun canGoBack() = navigator.canGoBack()
-    override fun goBack() = navigator.goBack()
-    override fun canGoForward() = navigator.canGoForward()
-    override fun goForward() = navigator.goForward()
-    override fun reload() = navigator.reload()
-    override fun stopLoading() = navigator.stop()
+
+    override fun canGoBack() = false
+    override fun goBack() {}
+    override fun canGoForward() = false
+    override fun goForward() {}
+    override fun reload() { loadUrl(currentUrl ?: "https://servo.org") }
+    override fun stopLoading() {}
     override fun getCurrentUrl() = currentUrl
-    override fun getTitle() = null
+    override fun getTitle() = "Servo (stub)"
     override fun setProgressListener(listener: ((Int) -> Unit)?) { progressListener = listener }
     override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) {
         navigationListener = listener

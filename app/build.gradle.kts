@@ -92,6 +92,8 @@ android {
         compose = true
         viewBinding = true
         buildConfig = true
+        resValues = true
+        buildConfig = true
     }
 
     // Chromium pak/dat must stay uncompressed when bundled

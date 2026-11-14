@@ -12,7 +12,7 @@ import org.servo.servoview.ServoNavigator
 import android.util.Log
 
 /**
- * Real Servo engine using the official servo-aarch64-android.aar (Compose-based).
+ * Real Servo engine using official servo-aarch64-android.aar (Compose).
  */
 class ServoEngine(context: Context) : BrowserEngine {
 
@@ -33,24 +33,22 @@ class ServoEngine(context: Context) : BrowserEngine {
         override fun onAlert(message: String) {
             Log.i("ServoEngine", "Alert: $message")
         }
-
         override fun onLoadStarted() {
             navigationListener?.onPageStarted(currentUrl)
-            progressListener?.invoke(30)
+            progressListener?.invoke(40)
         }
-
         override fun onLoadEnded() {
             progressListener?.invoke(100)
             navigationListener?.onPageFinished(currentUrl)
         }
-
         override fun onTitleChanged(title: String) {
             currentTitle = title
         }
-
         override fun onUrlChanged(url: String) {
             currentUrl = url
         }
+        override fun onImeShow() {}
+        override fun onImeHide() {}
     }
 
     init {
@@ -64,7 +62,7 @@ class ServoEngine(context: Context) : BrowserEngine {
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
-        Log.i("ServoEngine", "Real Servo engine (Compose) initialized")
+        Log.i("ServoEngine", "Real Servo engine initialized")
     }
 
     override fun getView(): View = container
@@ -87,9 +85,7 @@ class ServoEngine(context: Context) : BrowserEngine {
     override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) {
         navigationListener = listener
     }
-    override fun destroy() {
-        composeView.disposeComposition()
-    }
+    override fun destroy() { composeView.disposeComposition() }
     override fun onResume() {}
     override fun onPause() {}
 }
@@ -98,6 +94,7 @@ class ServoEngine(context: Context) : BrowserEngine {
 private fun ServoHost(client: Servo.Client, navigator: ServoNavigator) {
     Servo(
         experimentalModeEnabled = false,
+        softKeyboardVisible = false,
         args = null,
         initialUrl = null,
         logStr = null,

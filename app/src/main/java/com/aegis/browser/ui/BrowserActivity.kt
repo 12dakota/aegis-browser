@@ -40,7 +40,6 @@ import com.aegis.browser.R
 import com.aegis.browser.engine.BrowserEngine
 import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.ui.MaterialPalette
-import com.aegis.browser.engine.ChromiumEngine
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.auth.SessionStore

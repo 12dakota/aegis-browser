@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    // AGP 9.x has built-in Kotlin — do not apply org.jetbrains.kotlin.android
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.aegis.browser"
         minSdk = 31
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 3
         versionName = "1.2.0-dual-engine"
 

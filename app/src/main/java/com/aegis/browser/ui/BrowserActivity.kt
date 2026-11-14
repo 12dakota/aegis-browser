@@ -42,7 +42,6 @@ import com.aegis.browser.engine.EngineSelector
 import com.aegis.browser.ui.MaterialPalette
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
-import com.aegis.browser.auth.SessionStore
 import com.aegis.browser.extensions.ExtensionManager
 import com.aegis.browser.downloads.DownloadCoordinator
 import kotlinx.coroutines.CoroutineScope
@@ -102,13 +101,7 @@ class BrowserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Family build requires cloud login; adult (Aegis Open) does not
-        if (BuildConfig.REQUIRE_LOGIN && !SessionStore.isLoggedIn(this)) {
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
-        }
-
+        // Login removed — open directly
         tabManager = TabManager(this)
         tabManager.onTabsChanged = {
             refreshTabStrip()

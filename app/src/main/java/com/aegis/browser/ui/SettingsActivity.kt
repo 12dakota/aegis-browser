@@ -93,10 +93,10 @@ class SettingsActivity : AppCompatActivity() {
         root.addView(ChromeUi.navRow(this, "Engine", enginePrefLabel(), R.drawable.ic_nav_engine) {
             cycleEngine()
         })
-        root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Blink, Gecko, or WebKit per site", R.drawable.ic_nav_engine) {
+        root.addView(ChromeUi.navRow(this, "Use Auto", "Pick Servo, Gecko, or WebKit per site", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.AUTO); toast("Auto")
         })
-        root.addView(ChromeUi.navRow(this, "Use Servo", "System WebView / Blink", R.drawable.ic_nav_engine) {
+        root.addView(ChromeUi.navRow(this, "Use Servo", "Servo engine (stub / future AAR)", R.drawable.ic_nav_engine) {
             EngineSelector.setPreference(this, EngineSelector.Preference.FORCE_SERVO); toast("Servo")
         })
         root.addView(ChromeUi.navRow(this, "Use Gecko", "Firefox engine + extensions", R.drawable.ic_nav_extension) {
@@ -157,9 +157,7 @@ class SettingsActivity : AppCompatActivity() {
         EngineSelector.setPreference(this, next)
         toast(enginePrefLabel())
     }
-        EngineSelector.setPreference(this, next)
-        toast(enginePrefLabel())
-    }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
 }
+

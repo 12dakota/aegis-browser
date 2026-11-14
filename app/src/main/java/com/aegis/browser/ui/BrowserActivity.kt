@@ -1331,17 +1331,11 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun showAbout() {
-        val chromium = try {
-            ChromiumEngine.chromiumVersionSummary(this)
-        } catch (_: Exception) {
-            "System WebView"
-        }
         val msg = """
             Provonlong Web Browser
             Chrome-like shell - our own code.
 
-            Engines: Chromium (Google System WebView) + Gecko (GeckoView)
-            Chromium provider: $chromium
+            Engines: Servo + Gecko (GeckoView) + WebKit (WPE) + Custom (DexClassLoader)
             Auth: Cloudflare Worker (family) / open (adult)
             Proxy: Cloudflare Gateway PAC (family)
             Extensions: Gecko / AMO WebExtensions
@@ -1455,3 +1449,4 @@ class BrowserActivity : AppCompatActivity() {
         const val EXTRA_START_URL = "start_url"
     }
 }
+

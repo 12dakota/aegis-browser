@@ -3,60 +3,106 @@ package com.aegis.browser.engine
 import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.TextView
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import org.servo.servoview.Servo
+import org.servo.servoview.ServoNavigator
 import android.util.Log
 
 /**
- * Stub Servo engine.
- *
- * Real integration requires the official servo-aarch64-android.aar
- * placed in app/libs/ and the dependency uncommented in app/build.gradle.kts.
- *
- * This stub keeps the project building until the AAR is available.
+ * Real Servo engine using the official servo-aarch64-android.aar (Compose-based).
  */
 class ServoEngine(context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.SERVO
 
-    private val container = FrameLayout(context).apply {
-        val label = TextView(context).apply {
-            text = "Servo engine (stub)\nPlace servo-aarch64-android.aar in app/libs/"
-            textSize = 16f
-            setPadding(32, 32, 32, 32)
-        }
-        addView(label)
+    private val navigator = ServoNavigator()
+    private val container = FrameLayout(context)
+    private val composeView = ComposeView(context).apply {
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
     }
 
     private var progressListener: ((Int) -> Unit)? = null
     private var navigationListener: BrowserEngine.NavigationListener? = null
     private var currentUrl: String? = null
+    private var currentTitle: String? = null
+
+    private val client = object : Servo.Client {
+        override fun onAlert(message: String) {
+            Log.i("ServoEngine", "Alert: $message")
+        }
+
+        override fun onLoadStarted() {
+            navigationListener?.onPageStarted(currentUrl)
+            progressListener?.invoke(30)
+        }
+
+        override fun onLoadEnded() {
+            progressListener?.invoke(100)
+            navigationListener?.onPageFinished(currentUrl)
+        }
+
+        override fun onTitleChanged(title: String) {
+            currentTitle = title
+        }
+
+        override fun onUrlChanged(url: String) {
+            currentUrl = url
+        }
+    }
 
     init {
-        Log.i("ServoEngine", "Using stub ServoEngine — real AAR not present")
+        composeView.setContent {
+            ServoHost(client = client, navigator = navigator)
+        }
+        container.addView(
+            composeView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        Log.i("ServoEngine", "Real Servo engine (Compose) initialized")
     }
 
     override fun getView(): View = container
 
     override fun loadUrl(url: String) {
         currentUrl = url
+        navigator.navigate(url)
         navigationListener?.onPageStarted(url)
-        progressListener?.invoke(100)
-        navigationListener?.onPageFinished(url)
     }
 
-    override fun canGoBack() = false
-    override fun goBack() {}
-    override fun canGoForward() = false
-    override fun goForward() {}
-    override fun reload() { loadUrl(currentUrl ?: "https://servo.org") }
-    override fun stopLoading() {}
+    override fun canGoBack() = navigator.canGoBack
+    override fun goBack() { navigator.back() }
+    override fun canGoForward() = navigator.canGoForward
+    override fun goForward() { navigator.forward() }
+    override fun reload() { navigator.reload() }
+    override fun stopLoading() { navigator.stop() }
     override fun getCurrentUrl() = currentUrl
-    override fun getTitle() = "Servo (stub)"
+    override fun getTitle() = currentTitle ?: "Servo"
     override fun setProgressListener(listener: ((Int) -> Unit)?) { progressListener = listener }
     override fun setNavigationListener(listener: BrowserEngine.NavigationListener?) {
         navigationListener = listener
     }
-    override fun destroy() {}
+    override fun destroy() {
+        composeView.disposeComposition()
+    }
     override fun onResume() {}
     override fun onPause() {}
+}
+
+@Composable
+private fun ServoHost(client: Servo.Client, navigator: ServoNavigator) {
+    Servo(
+        experimentalModeEnabled = false,
+        args = null,
+        initialUrl = null,
+        logStr = null,
+        client = client,
+        navigator = navigator,
+        modifier = Modifier
+    )
 }

@@ -1,6 +1,8 @@
 package com.aegis.browser.engine
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -13,11 +15,11 @@ import org.servo.servoview.ServoNavigator
 import android.util.Log
 
 /**
- * Real Servo engine (official servo-aarch64-android.aar).
- * - Explicit native library load
- * - Deferred init until window attachment
- * - Crash-safe fallback
- * - Proper lifecycle hooks
+ * Real Servo engine for regular phone APKs (family / adult).
+ * - Explicit libservoshell load
+ * - Init only after the view has a window and a short settle delay
+ * - All native calls isolated so a Servo failure cannot crash the process
+ * - Boot / OS detection logic is left untouched elsewhere
  */
 class ServoEngine(private val context: Context) : BrowserEngine {
 
@@ -39,6 +41,7 @@ class ServoEngine(private val context: Context) : BrowserEngine {
         }
     }
 
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val navigator = ServoNavigator()
     private val container = FrameLayout(context)
     private var composeView: ComposeView? = null
@@ -49,6 +52,7 @@ class ServoEngine(private val context: Context) : BrowserEngine {
     private var currentTitle: String? = null
     private var initialized = false
     private var destroyed = false
+    private var pendingUrl: String? = null
 
     private val client = object : Servo.Client {
         override fun onAlert(message: String) { Log.i(TAG, "Alert: $message") }
@@ -72,13 +76,13 @@ class ServoEngine(private val context: Context) : BrowserEngine {
             override fun onViewAttachedToWindow(v: View) {
                 if (!initialized && !destroyed) {
                     initialized = true
-                    // Small post to let the window fully settle
-                    v.post { tryInitServo() }
+                    // Give the window / surface a moment to be fully ready
+                    mainHandler.postDelayed({ tryInitServo() }, 150)
                 }
             }
             override fun onViewDetachedFromWindow(v: View) {}
         })
-        Log.i(TAG, "ServoEngine created (init deferred)")
+        Log.i(TAG, "ServoEngine created (phone path, init deferred)")
     }
 
     private fun tryInitServo() {
@@ -94,9 +98,14 @@ class ServoEngine(private val context: Context) : BrowserEngine {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
-            Log.i(TAG, "Servo Compose view attached successfully")
+            Log.i(TAG, "Servo view rendered")
+            // Flush any URL that arrived before the view was ready
+            pendingUrl?.let { url ->
+                pendingUrl = null
+                mainHandler.post { safeNavigate(url) }
+            }
         } catch (t: Throwable) {
-            Log.e(TAG, "Servo init failed", t)
+            Log.e(TAG, "Servo render failed", t)
             showFallback(t.message ?: t.javaClass.simpleName)
         }
     }
@@ -104,19 +113,27 @@ class ServoEngine(private val context: Context) : BrowserEngine {
     private fun showFallback(reason: String) {
         container.removeAllViews()
         val label = TextView(context).apply {
-            text = "Servo unavailable\n$reason\n\nSwitch engine in Settings."
+            text = "Servo could not start\n$reason\n\nSwitch to Gecko or WebKit in Settings."
             textSize = 16f
             setPadding(48, 48, 48, 48)
         }
         container.addView(label)
     }
 
+    private fun safeNavigate(url: String) {
+        try { navigator.navigate(url) } catch (t: Throwable) {
+            Log.w(TAG, "navigate failed for $url", t)
+        }
+    }
+
     override fun getView(): View = container
 
     override fun loadUrl(url: String) {
         currentUrl = url
-        try { navigator.navigate(url) } catch (t: Throwable) {
-            Log.w(TAG, "navigate failed", t)
+        if (composeView == null) {
+            pendingUrl = url
+        } else {
+            safeNavigate(url)
         }
         navigationListener?.onPageStarted(url)
     }
@@ -135,11 +152,12 @@ class ServoEngine(private val context: Context) : BrowserEngine {
     }
     override fun destroy() {
         destroyed = true
+        mainHandler.removeCallbacksAndMessages(null)
         try { composeView?.disposeComposition() } catch (_: Throwable) {}
         composeView = null
     }
-    override fun onResume() { /* Servo handles via Compose lifecycle */ }
-    override fun onPause() { /* Servo handles via Compose lifecycle */ }
+    override fun onResume() {}
+    override fun onPause() {}
 }
 
 @Composable

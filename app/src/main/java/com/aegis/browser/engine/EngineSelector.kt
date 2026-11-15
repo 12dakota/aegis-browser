@@ -120,7 +120,7 @@ object EngineSelector {
             return BrowserEngine.Type.WEBKIT
         }
 
-        return BrowserEngine.Type.SERVO // default
+        return BrowserEngine.Type.GECKO // default (Servo still experimental)
     }
 
     private fun hostOf(url: String): String? {

@@ -1,8 +1,8 @@
 name: Build OS (Provonlong)
 
+# OS build disabled — mobile only until Servo is stable.
+# Re-enable by restoring the push trigger.
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:

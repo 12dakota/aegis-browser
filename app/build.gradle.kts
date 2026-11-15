@@ -125,10 +125,16 @@ dependencies {
 
     // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
-    // Compose for Servo composable
-    implementation("androidx.compose.ui:ui:1.7.0")
-    implementation("androidx.compose.material3:material3:1.3.0")
-    implementation("androidx.activity:activity-compose:1.9.3")
+    // Compose for Servo — BOM matches AAR's LocalResources API (1.9+)
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.runtime:runtime")
+    implementation("androidx.activity:activity-compose")
+    debugImplementation("androidx.compose.ui:ui-tooling")
     // Servo: place servo-aarch64-android.aar in app/libs/ and uncomment:
     implementation(files("libs/servo-aarch64-android.aar"))
     implementation("org.wpewebkit.wpeview:wpeview:0.3.3")

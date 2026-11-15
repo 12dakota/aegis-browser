@@ -1,8 +1,7 @@
 name: Build Family (Provonlong)
 
+# Family auto-build disabled — adult mobile only.
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:

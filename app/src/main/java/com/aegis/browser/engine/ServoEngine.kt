@@ -13,13 +13,31 @@ import org.servo.servoview.ServoNavigator
 import android.util.Log
 
 /**
- * Real Servo engine using official servo-aarch64-android.aar.
- * Initialization is defensive — native/Compose failures fall back to a safe placeholder
- * instead of crashing the process.
+ * Real Servo engine (official servo-aarch64-android.aar).
+ * - Explicit native library load
+ * - Deferred init until window attachment
+ * - Crash-safe fallback
+ * - Proper lifecycle hooks
  */
-class ServoEngine(context: Context) : BrowserEngine {
+class ServoEngine(private val context: Context) : BrowserEngine {
 
     override val type = BrowserEngine.Type.SERVO
+
+    companion object {
+        private const val TAG = "ServoEngine"
+        private var nativeLoaded = false
+
+        fun ensureNativeLoaded() {
+            if (nativeLoaded) return
+            try {
+                System.loadLibrary("servoshell")
+                nativeLoaded = true
+                Log.i(TAG, "libservoshell.so loaded")
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to load libservoshell.so", t)
+            }
+        }
+    }
 
     private val navigator = ServoNavigator()
     private val container = FrameLayout(context)
@@ -30,12 +48,13 @@ class ServoEngine(context: Context) : BrowserEngine {
     private var currentUrl: String? = null
     private var currentTitle: String? = null
     private var initialized = false
+    private var destroyed = false
 
     private val client = object : Servo.Client {
-        override fun onAlert(message: String) { Log.i("ServoEngine", "Alert: $message") }
+        override fun onAlert(message: String) { Log.i(TAG, "Alert: $message") }
         override fun onLoadStarted() {
             navigationListener?.onPageStarted(currentUrl)
-            progressListener?.invoke(40)
+            progressListener?.invoke(30)
         }
         override fun onLoadEnded() {
             progressListener?.invoke(100)
@@ -48,43 +67,46 @@ class ServoEngine(context: Context) : BrowserEngine {
     }
 
     init {
-        // Defer heavy init until the view is attached to a window.
+        ensureNativeLoaded()
         container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
-                if (!initialized) {
+                if (!initialized && !destroyed) {
                     initialized = true
-                    tryInitServo(context)
+                    // Small post to let the window fully settle
+                    v.post { tryInitServo() }
                 }
             }
             override fun onViewDetachedFromWindow(v: View) {}
         })
-        Log.i("ServoEngine", "ServoEngine created (init deferred)")
+        Log.i(TAG, "ServoEngine created (init deferred)")
     }
 
-    private fun tryInitServo(context: Context) {
+    private fun tryInitServo() {
+        if (destroyed) return
         try {
             val cv = ComposeView(context).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                 setContent { ServoHost(client = client, navigator = navigator) }
             }
             composeView = cv
+            container.removeAllViews()
             container.addView(cv, FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
-            Log.i("ServoEngine", "Servo Compose view attached")
+            Log.i(TAG, "Servo Compose view attached successfully")
         } catch (t: Throwable) {
-            Log.e("ServoEngine", "Servo init failed — showing fallback", t)
-            showFallback(context, t.message ?: "unknown error")
+            Log.e(TAG, "Servo init failed", t)
+            showFallback(t.message ?: t.javaClass.simpleName)
         }
     }
 
-    private fun showFallback(context: Context, reason: String) {
+    private fun showFallback(reason: String) {
         container.removeAllViews()
         val label = TextView(context).apply {
             text = "Servo unavailable\n$reason\n\nSwitch engine in Settings."
             textSize = 16f
-            setPadding(32, 32, 32, 32)
+            setPadding(48, 48, 48, 48)
         }
         container.addView(label)
     }
@@ -93,7 +115,9 @@ class ServoEngine(context: Context) : BrowserEngine {
 
     override fun loadUrl(url: String) {
         currentUrl = url
-        try { navigator.navigate(url) } catch (_: Throwable) {}
+        try { navigator.navigate(url) } catch (t: Throwable) {
+            Log.w(TAG, "navigate failed", t)
+        }
         navigationListener?.onPageStarted(url)
     }
 
@@ -110,10 +134,12 @@ class ServoEngine(context: Context) : BrowserEngine {
         navigationListener = listener
     }
     override fun destroy() {
+        destroyed = true
         try { composeView?.disposeComposition() } catch (_: Throwable) {}
+        composeView = null
     }
-    override fun onResume() {}
-    override fun onPause() {}
+    override fun onResume() { /* Servo handles via Compose lifecycle */ }
+    override fun onPause() { /* Servo handles via Compose lifecycle */ }
 }
 
 @Composable

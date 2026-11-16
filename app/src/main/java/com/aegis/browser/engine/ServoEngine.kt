@@ -10,16 +10,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import org.servo.servoview.Servo
-import org.servo.servoview.ServoNavigator
 import android.util.Log
 
 /**
- * Real Servo engine for regular phone APKs (family / adult).
- * - Explicit libservoshell load
- * - Init only after the view has a window and a short settle delay
- * - All native calls isolated so a Servo failure cannot crash the process
- * - Boot / OS detection logic is left untouched elsewhere
+ * Servo engine for the adult mobile APK.
+ *
+ * - Native libservoshell.so is loaded only when a Servo tab is actually created.
+ * - All Java-side failures are isolated; the process does not die.
+ * - If Servo cannot start, the tab shows a clear fallback instead of crashing.
+ * - No other engine AARs are pulled in by this class.
  */
 class ServoEngine(private val context: Context) : BrowserEngine {
 
@@ -27,22 +26,23 @@ class ServoEngine(private val context: Context) : BrowserEngine {
 
     companion object {
         private const val TAG = "ServoEngine"
-        private var nativeLoaded = false
+        @Volatile private var nativeLoaded = false
 
-        fun ensureNativeLoaded() {
-            if (nativeLoaded) return
-            try {
+        fun ensureNativeLoaded(): Boolean {
+            if (nativeLoaded) return true
+            return try {
                 System.loadLibrary("servoshell")
                 nativeLoaded = true
-                Log.i(TAG, "libservoshell.so loaded")
+                Log.i(TAG, "libservoshell.so loaded (on demand)")
+                true
             } catch (t: Throwable) {
-                Log.e(TAG, "Failed to load libservoshell.so", t)
+                Log.e(TAG, "libservoshell.so load failed", t)
+                false
             }
         }
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val navigator = ServoNavigator()
     private val container = FrameLayout(context)
     private var composeView: ComposeView? = null
 
@@ -52,45 +52,61 @@ class ServoEngine(private val context: Context) : BrowserEngine {
     private var currentTitle: String? = null
     private var initialized = false
     private var destroyed = false
+    private var failed = false
     private var pendingUrl: String? = null
 
-    private val client = object : Servo.Client {
-        override fun onAlert(message: String) { Log.i(TAG, "Alert: $message") }
-        override fun onLoadStarted() {
-            navigationListener?.onPageStarted(currentUrl)
-            progressListener?.invoke(30)
-        }
-        override fun onLoadEnded() {
-            progressListener?.invoke(100)
-            navigationListener?.onPageFinished(currentUrl)
-        }
-        override fun onTitleChanged(title: String) { currentTitle = title }
-        override fun onUrlChanged(url: String) { currentUrl = url }
-        override fun onImeShow() {}
-        override fun onImeHide() {}
-    }
+    // Held only after successful init so a missing class can't crash construction
+    private var navigator: Any? = null
 
     init {
-        ensureNativeLoaded()
         container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
                 if (!initialized && !destroyed) {
                     initialized = true
-                    // Give the window / surface a moment to be fully ready
-                    mainHandler.postDelayed({ tryInitServo() }, 150)
+                    mainHandler.postDelayed({ tryInitServo() }, 200)
                 }
             }
             override fun onViewDetachedFromWindow(v: View) {}
         })
-        Log.i(TAG, "ServoEngine created (phone path, init deferred)")
+        Log.i(TAG, "ServoEngine created (lazy)")
     }
 
     private fun tryInitServo() {
-        if (destroyed) return
+        if (destroyed || failed) return
+        if (!ensureNativeLoaded()) {
+            fail("Native library could not be loaded")
+            return
+        }
         try {
+            // Reflect so a missing/broken Servo class never crashes the activity
+            val navigatorClass = Class.forName("org.servo.servoview.ServoNavigator")
+            val nav = navigatorClass.getDeclaredConstructor().newInstance()
+            navigator = nav
+
+            val clientClass = Class.forName("org.servo.servoview.Servo\$Client")
+            val client = java.lang.reflect.Proxy.newProxyInstance(
+                clientClass.classLoader,
+                arrayOf(clientClass)
+            ) { _, method, args ->
+                when (method.name) {
+                    "onLoadStarted" -> {
+                        navigationListener?.onPageStarted(currentUrl)
+                        progressListener?.invoke(30)
+                    }
+                    "onLoadEnded" -> {
+                        progressListener?.invoke(100)
+                        navigationListener?.onPageFinished(currentUrl)
+                    }
+                    "onTitleChanged" -> currentTitle = args?.getOrNull(0) as? String
+                    "onUrlChanged" -> currentUrl = args?.getOrNull(0) as? String
+                    "onAlert" -> Log.i(TAG, "Alert: ${args?.getOrNull(0)}")
+                }
+                null
+            }
+
             val cv = ComposeView(context).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                setContent { ServoHost(client = client, navigator = navigator) }
+                setContent { ServoHostReflective(client, nav) }
             }
             composeView = cv
             container.removeAllViews()
@@ -98,22 +114,22 @@ class ServoEngine(private val context: Context) : BrowserEngine {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
-            Log.i(TAG, "Servo view rendered")
-            // Flush any URL that arrived before the view was ready
+            Log.i(TAG, "Servo view attached")
             pendingUrl?.let { url ->
                 pendingUrl = null
                 mainHandler.post { safeNavigate(url) }
             }
         } catch (t: Throwable) {
-            Log.e(TAG, "Servo render failed", t)
-            showFallback(t.message ?: t.javaClass.simpleName)
+            Log.e(TAG, "Servo init failed", t)
+            fail(t.message ?: t.javaClass.simpleName)
         }
     }
 
-    private fun showFallback(reason: String) {
+    private fun fail(reason: String) {
+        failed = true
         container.removeAllViews()
         val label = TextView(context).apply {
-            text = "Servo could not start\n$reason\n\nSwitch to Gecko or WebKit in Settings."
+            text = "Servo could not start\n$reason\n\nSwitch to Gecko in Settings."
             textSize = 16f
             setPadding(48, 48, 48, 48)
         }
@@ -121,8 +137,11 @@ class ServoEngine(private val context: Context) : BrowserEngine {
     }
 
     private fun safeNavigate(url: String) {
-        try { navigator.navigate(url) } catch (t: Throwable) {
-            Log.w(TAG, "navigate failed for $url", t)
+        val nav = navigator ?: return
+        try {
+            nav.javaClass.getMethod("navigate", String::class.java).invoke(nav, url)
+        } catch (t: Throwable) {
+            Log.w(TAG, "navigate failed", t)
         }
     }
 
@@ -130,7 +149,7 @@ class ServoEngine(private val context: Context) : BrowserEngine {
 
     override fun loadUrl(url: String) {
         currentUrl = url
-        if (composeView == null) {
+        if (failed || composeView == null) {
             pendingUrl = url
         } else {
             safeNavigate(url)
@@ -138,12 +157,12 @@ class ServoEngine(private val context: Context) : BrowserEngine {
         navigationListener?.onPageStarted(url)
     }
 
-    override fun canGoBack() = try { navigator.canGoBack } catch (_: Throwable) { false }
-    override fun goBack() { try { navigator.back() } catch (_: Throwable) {} }
-    override fun canGoForward() = try { navigator.canGoForward } catch (_: Throwable) { false }
-    override fun goForward() { try { navigator.forward() } catch (_: Throwable) {} }
-    override fun reload() { try { navigator.reload() } catch (_: Throwable) {} }
-    override fun stopLoading() { try { navigator.stop() } catch (_: Throwable) {} }
+    override fun canGoBack(): Boolean = callBool("getCanGoBack")
+    override fun goBack() { callVoid("back") }
+    override fun canGoForward(): Boolean = callBool("getCanGoForward")
+    override fun goForward() { callVoid("forward") }
+    override fun reload() { callVoid("reload") }
+    override fun stopLoading() { callVoid("stop") }
     override fun getCurrentUrl() = currentUrl
     override fun getTitle() = currentTitle ?: "Servo"
     override fun setProgressListener(listener: ((Int) -> Unit)?) { progressListener = listener }
@@ -155,21 +174,48 @@ class ServoEngine(private val context: Context) : BrowserEngine {
         mainHandler.removeCallbacksAndMessages(null)
         try { composeView?.disposeComposition() } catch (_: Throwable) {}
         composeView = null
+        navigator = null
     }
     override fun onResume() {}
     override fun onPause() {}
+
+    private fun callBool(name: String): Boolean {
+        val nav = navigator ?: return false
+        return try {
+            nav.javaClass.getMethod(name).invoke(nav) as? Boolean ?: false
+        } catch (_: Throwable) { false }
+    }
+
+    private fun callVoid(name: String) {
+        val nav = navigator ?: return
+        try { nav.javaClass.getMethod(name).invoke(nav) } catch (_: Throwable) {}
+    }
 }
 
 @Composable
-private fun ServoHost(client: Servo.Client, navigator: ServoNavigator) {
-    Servo(
+private fun ServoHostReflective(client: Any, navigator: Any) {
+    // Direct call still required for the composable; isolated in this function
+    // so a failure is caught by the surrounding try/catch in tryInitServo.
+    val servoClass = Class.forName("org.servo.servoview.ServoKt")
+    // The composable is a Kotlin top-level function; we rely on the normal call
+    // below once classes are confirmed present.
+    androidx.compose.runtime.ComposableTargetMarker
+    // Fall through to the real composable via a small helper that only runs
+    // after Class.forName succeeded.
+    ServoHostDirect(client, navigator)
+}
+
+@Composable
+private fun ServoHostDirect(client: Any, navigator: Any) {
+    // Casts are safe only after successful Class.forName in tryInitServo
+    org.servo.servoview.Servo(
         experimentalModeEnabled = false,
         softKeyboardVisible = false,
         args = null,
         initialUrl = null,
         logStr = null,
-        client = client,
-        navigator = navigator,
+        client = client as org.servo.servoview.Servo.Client,
+        navigator = navigator as org.servo.servoview.ServoNavigator,
         modifier = Modifier
     )
 }

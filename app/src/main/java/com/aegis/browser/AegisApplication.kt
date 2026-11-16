@@ -8,7 +8,6 @@ import android.util.Log
 import com.google.android.material.color.DynamicColors
 import com.aegis.browser.BuildConfig
 import com.aegis.browser.engine.EngineSelector
-import com.aegis.browser.engine.ServoEngine
 import com.aegis.browser.mdm.DeviceOwnerHelper
 import com.aegis.browser.policy.PolicyManager
 import com.aegis.browser.proxy.PacProxyManager
@@ -47,8 +46,7 @@ class AegisApplication : Application() {
         }
 
         try {
-            ServoEngine.ensureNativeLoaded()
-        EngineSelector.init(this)
+            EngineSelector.init(this)
         } catch (e: Exception) {
             Log.w(TAG, "EngineSelector init failed", e)
         }

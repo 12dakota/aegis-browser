@@ -194,14 +194,6 @@ class ServoEngine(private val context: Context) : BrowserEngine {
 
 @Composable
 private fun ServoHostReflective(client: Any, navigator: Any) {
-    // Direct call still required for the composable; isolated in this function
-    // so a failure is caught by the surrounding try/catch in tryInitServo.
-    val servoClass = Class.forName("org.servo.servoview.ServoKt")
-    // The composable is a Kotlin top-level function; we rely on the normal call
-    // below once classes are confirmed present.
-    androidx.compose.runtime.ComposableTargetMarker
-    // Fall through to the real composable via a small helper that only runs
-    // after Class.forName succeeded.
     ServoHostDirect(client, navigator)
 }
 

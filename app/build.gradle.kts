@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     // AGP 9.x has built-in Kotlin — do not apply org.jetbrains.kotlin.android
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -89,7 +88,6 @@ android {
     }
 
     buildFeatures {
-        compose = true
         viewBinding = true
         buildConfig = true
         resValues = true
@@ -125,18 +123,8 @@ dependencies {
 
     // Firefox Gecko engine (updated by engine-update workflow)
     implementation("org.mozilla.geckoview:geckoview:153.0.20260810162159")
-    // Compose for Servo — BOM matches AAR's LocalResources API (1.9+)
-    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
-    implementation(composeBom)
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.runtime:runtime")
-    implementation("androidx.activity:activity-compose")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    // Servo: place servo-aarch64-android.aar in app/libs/ and uncomment:
-    implementation(files("libs/servo-aarch64-android.aar"))
+    // Servo AAR and Compose removed — adult mobile runs Gecko only.
+    // Keeps RAM low and avoids native crash on engine switch.
     // WPE AAR removed for adult mobile — saves RAM and avoids libc++ clash
 
     testImplementation("junit:junit:4.13.2")

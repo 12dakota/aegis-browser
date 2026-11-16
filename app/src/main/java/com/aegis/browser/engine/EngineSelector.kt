@@ -93,7 +93,7 @@ object EngineSelector {
                     "G" -> BrowserEngine.Type.GECKO
                     "W" -> BrowserEngine.Type.WEBKIT
                     "X" -> BrowserEngine.Type.CUSTOM
-                    else -> BrowserEngine.Type.SERVO
+                    else -> BrowserEngine.Type.GECKO
                 }
             }
         }
@@ -111,7 +111,7 @@ object EngineSelector {
 
         learnedEngine(context, url)?.let { return it }
 
-        val host = hostOf(url) ?: return BrowserEngine.Type.SERVO
+        val host = hostOf(url) ?: return BrowserEngine.Type.GECKO
 
         if (geckoPreferred.any { host == it || host.endsWith(".$it") }) {
             return BrowserEngine.Type.GECKO
@@ -120,7 +120,7 @@ object EngineSelector {
             return BrowserEngine.Type.WEBKIT
         }
 
-        return BrowserEngine.Type.GECKO // default (Servo still experimental)
+        return BrowserEngine.Type.GECKO // default for adult mobile
     }
 
     private fun hostOf(url: String): String? {

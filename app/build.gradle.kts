@@ -137,7 +137,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     // Servo: place servo-aarch64-android.aar in app/libs/ and uncomment:
     implementation(files("libs/servo-aarch64-android.aar"))
-    implementation("org.wpewebkit.wpeview:wpeview:0.3.3")
+    // WPE AAR removed for adult mobile — saves RAM and avoids libc++ clash
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
